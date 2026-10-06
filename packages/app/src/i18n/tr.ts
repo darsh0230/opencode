@@ -172,6 +172,8 @@ export const dict = {
   "command.model.choose.description": "Farklı bir model seç",
   "command.mcp.toggle": "MCP'leri aç/kapat",
   "command.mcp.toggle.description": "MCP'leri aç/kapat",
+  "command.openai.accounts": "OpenAI accounts",
+  "command.openai.accounts.description": "Switch OpenAI account",
   "command.agent.cycle": "Ajan değiştir",
   "command.agent.cycle.description": "Sonraki ajana geç",
   "command.agent.cycle.reverse": "Ajanı geri değiştir",
@@ -425,6 +427,10 @@ export const dict = {
   "dialog.mcp.title": "MCP'ler",
   "dialog.mcp.description": "Toplam {{total}} öğeden {{enabled}} tanesi etkin",
   "dialog.mcp.empty": "Yapılandırılmış MCP yok",
+  "dialog.openai.accounts.title": "OpenAI accounts",
+  "dialog.openai.accounts.empty": "No OpenAI accounts found",
+  "dialog.openai.accounts.status.active": "Active",
+  "dialog.openai.accounts.loadFailed": "Could not load OpenAI accounts",
 
   "dialog.lsp.empty": "LSP'ler dosya türlerinden otomatik algılanır",
   "dialog.plugins.empty": "Eklentiler opencode.json içinde yapılandırılır",
@@ -647,6 +653,8 @@ export const dict = {
 
   "toast.model.none.title": "Model seçilmedi",
   "toast.model.none.description": "Bu oturumu özetlemek için bir sağlayıcı bağlayın",
+  "toast.openai.accounts.switched.title": "Switched to {{label}}",
+  "toast.openai.accounts.switch.failed.title": "Could not switch OpenAI account",
 
   "toast.file.loadFailed.title": "Dosya yüklenemedi",
   "toast.file.listFailed.title": "Dosyalar listelenemedi",

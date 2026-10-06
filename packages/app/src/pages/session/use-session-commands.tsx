@@ -313,6 +313,13 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
     )
   }
 
+  const chooseOpenAIAccount = () => {
+    void openDialog(
+      () => import("@/components/dialog-select-openai-account"),
+      (x) => dialog.show(() => <x.DialogSelectOpenAIAccount />),
+    )
+  }
+
   const toggleAutoAccept = () => {
     const sessionID = params.id
     if (sessionID) permission.toggleAutoAccept(sessionID, sdk().directory)
@@ -498,6 +505,13 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       slash: "export",
       disabled: !params.id,
       onSelect: exportSession,
+    }),
+    sessionCommand({
+      id: "openai.accounts",
+      title: language.t("command.openai.accounts"),
+      description: language.t("command.openai.accounts.description"),
+      slash: "accounts",
+      onSelect: chooseOpenAIAccount,
     }),
     sessionCommand({
       id: "session.archive",

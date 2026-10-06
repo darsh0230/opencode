@@ -166,6 +166,8 @@ export const dict = {
   "command.model.choose.description": "Velg en annen modell",
   "command.mcp.toggle": "Veksle MCP-er",
   "command.mcp.toggle.description": "Veksle MCP-er",
+  "command.openai.accounts": "OpenAI accounts",
+  "command.openai.accounts.description": "Switch OpenAI account",
   "command.agent.cycle": "Bytt agent",
   "command.agent.cycle.description": "Bytt til neste agent",
   "command.agent.cycle.reverse": "Bytt agent bakover",
@@ -411,6 +413,10 @@ export const dict = {
   "dialog.mcp.title": "MCP-er",
   "dialog.mcp.description": "{{enabled}} av {{total}} aktivert",
   "dialog.mcp.empty": "Ingen MCP-er konfigurert",
+  "dialog.openai.accounts.title": "OpenAI accounts",
+  "dialog.openai.accounts.empty": "No OpenAI accounts found",
+  "dialog.openai.accounts.status.active": "Active",
+  "dialog.openai.accounts.loadFailed": "Could not load OpenAI accounts",
 
   "dialog.lsp.empty": "LSP-er automatisk oppdaget fra filtyper",
   "dialog.plugins.empty": "Programtillegg konfigurert i opencode.json",
@@ -548,6 +554,8 @@ export const dict = {
 
   "toast.model.none.title": "Ingen modell valgt",
   "toast.model.none.description": "Koble til en leverandør for å oppsummere denne sesjonen",
+  "toast.openai.accounts.switched.title": "Switched to {{label}}",
+  "toast.openai.accounts.switch.failed.title": "Could not switch OpenAI account",
 
   "toast.file.loadFailed.title": "Kunne ikke laste fil",
   "toast.file.listFailed.title": "Kunne ikke liste filer",

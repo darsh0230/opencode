@@ -168,6 +168,8 @@ export const dict = {
   "command.model.choose.description": "Odaberi drugi model",
   "command.mcp.toggle": "Prikaži/sakrij MCP-ove",
   "command.mcp.toggle.description": "Prikaži/sakrij MCP-ove",
+  "command.openai.accounts": "OpenAI accounts",
+  "command.openai.accounts.description": "Switch OpenAI account",
   "command.agent.cycle": "Promijeni agenta",
   "command.agent.cycle.description": "Prebaci na sljedećeg agenta",
   "command.agent.cycle.reverse": "Promijeni agenta unazad",
@@ -421,6 +423,10 @@ export const dict = {
   "dialog.mcp.title": "MCP-ovi",
   "dialog.mcp.description": "{{enabled}} od {{total}} omogućeno",
   "dialog.mcp.empty": "Nema konfigurisanih MCP-ova",
+  "dialog.openai.accounts.title": "OpenAI accounts",
+  "dialog.openai.accounts.empty": "No OpenAI accounts found",
+  "dialog.openai.accounts.status.active": "Active",
+  "dialog.openai.accounts.loadFailed": "Could not load OpenAI accounts",
 
   "dialog.lsp.empty": "LSP-ovi se automatski otkrivaju prema tipu datoteke",
   "dialog.plugins.empty": "Plugini su konfigurisani u opencode.json",
@@ -644,6 +650,8 @@ export const dict = {
 
   "toast.model.none.title": "Nije odabran model",
   "toast.model.none.description": "Poveži provajdera da sažmeš ovu sesiju",
+  "toast.openai.accounts.switched.title": "Switched to {{label}}",
+  "toast.openai.accounts.switch.failed.title": "Could not switch OpenAI account",
 
   "toast.file.loadFailed.title": "Neuspjelo učitavanje datoteke",
   "toast.file.listFailed.title": "Neuspješno listanje datoteka",

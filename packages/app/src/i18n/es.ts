@@ -168,6 +168,8 @@ export const dict = {
   "command.model.choose.description": "Seleccionar un modelo diferente",
   "command.mcp.toggle": "Activar o desactivar servidores MCP",
   "command.mcp.toggle.description": "Activar o desactivar servidores MCP",
+  "command.openai.accounts": "OpenAI accounts",
+  "command.openai.accounts.description": "Switch OpenAI account",
   "command.agent.cycle": "Cambiar de agente",
   "command.agent.cycle.description": "Cambiar al siguiente agente",
   "command.agent.cycle.reverse": "Cambiar al agente anterior",
@@ -422,6 +424,10 @@ export const dict = {
   "dialog.mcp.title": "Servidores MCP",
   "dialog.mcp.description": "{{enabled}} de {{total}} habilitados",
   "dialog.mcp.empty": "No hay servidores MCP configurados",
+  "dialog.openai.accounts.title": "OpenAI accounts",
+  "dialog.openai.accounts.empty": "No OpenAI accounts found",
+  "dialog.openai.accounts.status.active": "Active",
+  "dialog.openai.accounts.loadFailed": "Could not load OpenAI accounts",
 
   "dialog.lsp.empty": "Servidores LSP detectados automáticamente por tipo de archivo",
   "dialog.plugins.empty": "Plugins configurados en opencode.json",
@@ -646,6 +652,8 @@ export const dict = {
 
   "toast.model.none.title": "Ningún modelo seleccionado",
   "toast.model.none.description": "Conecta un proveedor para resumir esta sesión",
+  "toast.openai.accounts.switched.title": "Switched to {{label}}",
+  "toast.openai.accounts.switch.failed.title": "Could not switch OpenAI account",
 
   "toast.file.loadFailed.title": "Fallo al cargar archivo",
   "toast.file.listFailed.title": "Fallo al listar archivos",

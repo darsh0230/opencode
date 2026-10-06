@@ -170,6 +170,8 @@ export const dict = {
   "command.model.choose.description": "選擇不同的模型",
   "command.mcp.toggle": "切換 MCP",
   "command.mcp.toggle.description": "切換 MCP",
+  "command.openai.accounts": "OpenAI accounts",
+  "command.openai.accounts.description": "Switch OpenAI account",
   "command.agent.cycle": "切換下一個代理程式",
   "command.agent.cycle.description": "切換到下一個代理程式",
   "command.agent.cycle.reverse": "切換上一個代理程式",
@@ -418,6 +420,10 @@ export const dict = {
   "dialog.mcp.title": "MCP",
   "dialog.mcp.description": "已啟用 {{enabled}} / {{total}}",
   "dialog.mcp.empty": "未設定 MCP",
+  "dialog.openai.accounts.title": "OpenAI accounts",
+  "dialog.openai.accounts.empty": "No OpenAI accounts found",
+  "dialog.openai.accounts.status.active": "Active",
+  "dialog.openai.accounts.loadFailed": "Could not load OpenAI accounts",
 
   "dialog.lsp.empty": "會根據檔案類型自動偵測 LSP",
   "dialog.plugins.empty": "在 opencode.json 中設定的外掛程式",
@@ -636,6 +642,8 @@ export const dict = {
 
   "toast.model.none.title": "未選擇模型",
   "toast.model.none.description": "請先連線提供者以摘要此工作階段",
+  "toast.openai.accounts.switched.title": "Switched to {{label}}",
+  "toast.openai.accounts.switch.failed.title": "Could not switch OpenAI account",
 
   "toast.file.loadFailed.title": "載入檔案失敗",
 

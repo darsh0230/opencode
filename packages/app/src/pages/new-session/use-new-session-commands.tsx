@@ -26,6 +26,17 @@ export function useNewSessionCommands(input: {
       },
     },
     {
+      id: "openai.accounts",
+      title: language.t("command.openai.accounts"),
+      description: language.t("command.openai.accounts.description"),
+      category: language.t("command.category.session"),
+      slash: "accounts",
+      onSelect: async () => {
+        const { DialogSelectOpenAIAccount } = await import("@/components/dialog-select-openai-account")
+        void dialog.show(() => <DialogSelectOpenAIAccount />)
+      },
+    },
+    {
       id: "input.focus",
       title: language.t("command.input.focus"),
       category: language.t("command.category.view"),

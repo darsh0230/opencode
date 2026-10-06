@@ -166,6 +166,8 @@ export const dict = {
   "command.model.choose.description": "เลือกโมเดลอื่น",
   "command.mcp.toggle": "สลับ MCPs",
   "command.mcp.toggle.description": "สลับ MCPs",
+  "command.openai.accounts": "OpenAI accounts",
+  "command.openai.accounts.description": "Switch OpenAI account",
   "command.agent.cycle": "เปลี่ยนเอเจนต์",
   "command.agent.cycle.description": "สลับไปยังเอเจนต์ถัดไป",
   "command.agent.cycle.reverse": "เปลี่ยนเอเจนต์ย้อนกลับ",
@@ -418,6 +420,10 @@ export const dict = {
   "dialog.mcp.title": "MCPs",
   "dialog.mcp.description": "{{enabled}} จาก {{total}} ที่เปิดใช้งาน",
   "dialog.mcp.empty": "ไม่มี MCP ที่กำหนดค่า",
+  "dialog.openai.accounts.title": "OpenAI accounts",
+  "dialog.openai.accounts.empty": "No OpenAI accounts found",
+  "dialog.openai.accounts.status.active": "Active",
+  "dialog.openai.accounts.loadFailed": "Could not load OpenAI accounts",
 
   "dialog.lsp.empty": "LSPs ตรวจจับอัตโนมัติจากประเภทไฟล์",
   "dialog.plugins.empty": "ปลั๊กอินที่กำหนดค่าใน opencode.json",
@@ -639,6 +645,8 @@ export const dict = {
 
   "toast.model.none.title": "ไม่ได้เลือกโมเดล",
   "toast.model.none.description": "เชื่อมต่อผู้ให้บริการเพื่อสรุปเซสชันนี้",
+  "toast.openai.accounts.switched.title": "Switched to {{label}}",
+  "toast.openai.accounts.switch.failed.title": "Could not switch OpenAI account",
 
   "toast.file.loadFailed.title": "ไม่สามารถโหลดไฟล์",
   "toast.file.listFailed.title": "ไม่สามารถแสดงรายการไฟล์",

@@ -168,6 +168,8 @@ export const dict = {
   "command.model.choose.description": "Pilih model yang berbeda",
   "command.mcp.toggle": "Alihkan MCP",
   "command.mcp.toggle.description": "Alihkan MCP",
+  "command.openai.accounts": "OpenAI accounts",
+  "command.openai.accounts.description": "Switch OpenAI account",
   "command.agent.cycle": "Ganti agen",
   "command.agent.cycle.description": "Beralih ke agen berikutnya",
   "command.agent.cycle.reverse": "Ganti agen mundur",
@@ -421,6 +423,10 @@ export const dict = {
   "dialog.mcp.title": "MCP",
   "dialog.mcp.description": "{{enabled}} dari {{total}} diaktifkan",
   "dialog.mcp.empty": "Tidak ada MCP yang dikonfigurasi",
+  "dialog.openai.accounts.title": "OpenAI accounts",
+  "dialog.openai.accounts.empty": "No OpenAI accounts found",
+  "dialog.openai.accounts.status.active": "Active",
+  "dialog.openai.accounts.loadFailed": "Could not load OpenAI accounts",
 
   "dialog.lsp.empty": "LSP terdeteksi otomatis dari jenis berkas",
   "dialog.plugins.empty": "Plugin dikonfigurasi di opencode.json",
@@ -653,6 +659,8 @@ export const dict = {
 
   "toast.model.none.title": "Tidak ada model dipilih",
   "toast.model.none.description": "Hubungkan penyedia untuk meringkas sesi ini",
+  "toast.openai.accounts.switched.title": "Switched to {{label}}",
+  "toast.openai.accounts.switch.failed.title": "Could not switch OpenAI account",
 
   "toast.file.loadFailed.title": "Gagal memuat berkas",
   "toast.file.listFailed.title": "Gagal mendaftar berkas",

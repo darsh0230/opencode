@@ -1,5 +1,6 @@
 import { Account } from "@/account/account"
 import { Agent } from "@/agent/agent"
+import { Auth } from "@/auth"
 import { BackgroundJob } from "@/background/job"
 import { Config } from "@/config/config"
 import { InstanceState } from "@/effect/instance-state"
@@ -16,6 +17,7 @@ import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
 import { ConsoleSwitchPayload, SessionListQuery, ToolListQuery, WorktreeApiError } from "../groups/experimental"
+import { openAIAccountsActivateHandler, openAIAccountsHandler } from "../openai-accounts"
 
 function mapWorktreeError<A, R>(self: Effect.Effect<A, Worktree.Error, R>) {
   return self.pipe(
@@ -27,6 +29,7 @@ export const experimentalHandlers = HttpApiBuilder.group(InstanceHttpApi, "exper
   Effect.gen(function* () {
     const account = yield* Account.Service
     const agents = yield* Agent.Service
+    const auth = yield* Auth.Service
     const config = yield* Config.Service
     const mcp = yield* MCP.Service
     const project = yield* Project.Service
@@ -180,6 +183,8 @@ export const experimentalHandlers = HttpApiBuilder.group(InstanceHttpApi, "exper
       .handle("console", getConsole)
       .handle("consoleOrgs", listConsoleOrgs)
       .handle("consoleSwitch", switchConsole)
+      .handle("openaiAccounts", openAIAccountsHandler(auth))
+      .handle("openaiAccountsActivate", openAIAccountsActivateHandler(auth))
       .handle("tool", tool)
       .handle("toolIDs", toolIDs)
       .handle("worktree", worktree)

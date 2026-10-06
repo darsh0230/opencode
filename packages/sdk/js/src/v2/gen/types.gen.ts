@@ -2143,6 +2143,15 @@ export type EffectHttpApiErrorInternalServerError = {
   _tag: "InternalServerError"
 }
 
+export type OpenAiAccount = {
+  accountID: string
+  label?: string
+  email?: string
+  active: boolean
+}
+
+export type OpenAiAccountList = Array<OpenAiAccount>
+
 export type ToolListItem = {
   id: string
   description: string
@@ -7624,6 +7633,80 @@ export type ExperimentalConsoleSwitchOrgResponses = {
 
 export type ExperimentalConsoleSwitchOrgResponse =
   ExperimentalConsoleSwitchOrgResponses[keyof ExperimentalConsoleSwitchOrgResponses]
+
+export type ExperimentalOpenaiAccountsListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/openai/accounts"
+}
+
+export type ExperimentalOpenaiAccountsListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * InternalServerError
+   */
+  500: EffectHttpApiErrorInternalServerError
+}
+
+export type ExperimentalOpenaiAccountsListError =
+  ExperimentalOpenaiAccountsListErrors[keyof ExperimentalOpenaiAccountsListErrors]
+
+export type ExperimentalOpenaiAccountsListResponses = {
+  /**
+   * OpenAI OAuth accounts
+   */
+  200: OpenAiAccountList
+}
+
+export type ExperimentalOpenaiAccountsListResponse =
+  ExperimentalOpenaiAccountsListResponses[keyof ExperimentalOpenaiAccountsListResponses]
+
+export type ExperimentalOpenaiAccountsActivateData = {
+  body?: {
+    accountID: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/openai/accounts/activate"
+}
+
+export type ExperimentalOpenaiAccountsActivateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+  /**
+   * InternalServerError
+   */
+  500: EffectHttpApiErrorInternalServerError
+}
+
+export type ExperimentalOpenaiAccountsActivateError =
+  ExperimentalOpenaiAccountsActivateErrors[keyof ExperimentalOpenaiAccountsActivateErrors]
+
+export type ExperimentalOpenaiAccountsActivateResponses = {
+  /**
+   * Newly active OpenAI account
+   */
+  200: OpenAiAccount
+}
+
+export type ExperimentalOpenaiAccountsActivateResponse =
+  ExperimentalOpenaiAccountsActivateResponses[keyof ExperimentalOpenaiAccountsActivateResponses]
 
 export type ToolListData = {
   body?: never

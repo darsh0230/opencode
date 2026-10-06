@@ -187,6 +187,8 @@ export const dict = {
 
   "command.mcp.toggle": "启用或禁用 MCP 服务器",
   "command.mcp.toggle.description": "启用或禁用 MCP 服务器",
+  "command.openai.accounts": "OpenAI accounts",
+  "command.openai.accounts.description": "Switch OpenAI account",
 
   "command.agent.cycle": "切换智能体",
   "command.agent.cycle.description": "切换到下一个智能体",
@@ -437,6 +439,10 @@ export const dict = {
   "dialog.mcp.title": "MCP 服务器",
   "dialog.mcp.description": "已启用 {{enabled}} / {{total}}",
   "dialog.mcp.empty": "未配置 MCP 服务器",
+  "dialog.openai.accounts.title": "OpenAI accounts",
+  "dialog.openai.accounts.empty": "No OpenAI accounts found",
+  "dialog.openai.accounts.status.active": "Active",
+  "dialog.openai.accounts.loadFailed": "Could not load OpenAI accounts",
 
   "dialog.lsp.empty": "已根据文件类型自动检测 LSP",
 
@@ -648,6 +654,8 @@ export const dict = {
   "toast.permissions.autoaccept.off.description": "权限请求将需要批准",
   "toast.model.none.title": "未选择模型",
   "toast.model.none.description": "请先连接提供商以总结此会话",
+  "toast.openai.accounts.switched.title": "Switched to {{label}}",
+  "toast.openai.accounts.switch.failed.title": "Could not switch OpenAI account",
   "toast.file.loadFailed.title": "加载文件失败",
   "toast.file.listFailed.title": "列出文件失败",
   "toast.context.noLineSelection.title": "未选择行",

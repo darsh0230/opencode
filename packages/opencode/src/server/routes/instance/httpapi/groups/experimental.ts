@@ -14,6 +14,7 @@ import {
   WorkspaceRoutingQuery,
   WorkspaceRoutingQueryFields,
 } from "../middleware/workspace-routing"
+import { openAIAccountsActivateEndpoint, openAIAccountsEndpoint } from "../openai-accounts"
 import { described } from "./metadata"
 import { QueryBoolean } from "./query"
 import { ProviderV2 } from "@opencode-ai/core/provider"
@@ -149,6 +150,8 @@ export const ExperimentalApi = HttpApi.make("experimental")
             description: "Persist a new active Console account/org selection for the current local OpenCode state.",
           }),
         ),
+        openAIAccountsEndpoint,
+        openAIAccountsActivateEndpoint,
         HttpApiEndpoint.get("tool", ExperimentalPaths.tool, {
           query: ToolListQuery,
           success: described(ToolList, "Tools"),

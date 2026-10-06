@@ -168,6 +168,8 @@ export const dict = {
   "command.model.choose.description": "Вибрати іншу модель",
   "command.mcp.toggle": "Перемкнути MCP",
   "command.mcp.toggle.description": "Перемкнути MCP",
+  "command.openai.accounts": "OpenAI accounts",
+  "command.openai.accounts.description": "Switch OpenAI account",
   "command.agent.cycle": "Перемкнути агента",
   "command.agent.cycle.description": "Перемкнути на наступного агента",
   "command.agent.cycle.reverse": "Перемкнути агента в зворотному напрямку",
@@ -422,6 +424,10 @@ export const dict = {
   "dialog.mcp.title": "MCP",
   "dialog.mcp.description": "{{enabled}} з {{total}} увімкнено",
   "dialog.mcp.empty": "MCP не налаштовано",
+  "dialog.openai.accounts.title": "OpenAI accounts",
+  "dialog.openai.accounts.empty": "No OpenAI accounts found",
+  "dialog.openai.accounts.status.active": "Active",
+  "dialog.openai.accounts.loadFailed": "Could not load OpenAI accounts",
 
   "dialog.lsp.empty": "Сервери LSP автоматично виявляються за типами файлів",
   "dialog.plugins.empty": "Плагіни налаштовані в opencode.json",
@@ -657,6 +663,8 @@ export const dict = {
 
   "toast.model.none.title": "Модель не вибрано",
   "toast.model.none.description": "Підключіть провайдера, щоб підсумувати цю сесію",
+  "toast.openai.accounts.switched.title": "Switched to {{label}}",
+  "toast.openai.accounts.switch.failed.title": "Could not switch OpenAI account",
 
   "toast.file.loadFailed.title": "Не вдалося завантажити файл",
   "toast.file.listFailed.title": "Не вдалося отримати список файлів",

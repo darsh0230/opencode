@@ -38,6 +38,10 @@ import type {
   ExperimentalConsoleSwitchOrgResponses,
   ExperimentalControlPlaneMoveSessionErrors,
   ExperimentalControlPlaneMoveSessionResponses,
+  ExperimentalOpenaiAccountsActivateErrors,
+  ExperimentalOpenaiAccountsActivateResponses,
+  ExperimentalOpenaiAccountsListErrors,
+  ExperimentalOpenaiAccountsListResponses,
   ExperimentalProjectCopyGenerateNameErrors,
   ExperimentalProjectCopyGenerateNameResponses,
   ExperimentalResourceListErrors,
@@ -802,6 +806,83 @@ export class Console extends HeyApiClient {
   }
 }
 
+export class OpenaiAccounts extends HeyApiClient {
+  /**
+   * List OpenAI OAuth accounts
+   *
+   * List the OpenAI OAuth accounts stored as per-account auth entries in multi-account setups. Returns sanitized account metadata only; OAuth tokens are never exposed.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ExperimentalOpenaiAccountsListResponses,
+      ExperimentalOpenaiAccountsListErrors,
+      ThrowOnError
+    >({
+      url: "/experimental/openai/accounts",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Activate an OpenAI OAuth account
+   *
+   * Copy the selected per-account OpenAI OAuth credential into the canonical "openai" auth entry so subsequent OpenAI requests use the chosen account.
+   */
+  public activate<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      accountID?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "accountID" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      ExperimentalOpenaiAccountsActivateResponses,
+      ExperimentalOpenaiAccountsActivateErrors,
+      ThrowOnError
+    >({
+      url: "/experimental/openai/accounts/activate",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
 export class Session extends HeyApiClient {
   /**
    * List sessions
@@ -1254,6 +1335,11 @@ export class Experimental extends HeyApiClient {
   private _console?: Console
   get console(): Console {
     return (this._console ??= new Console({ client: this.client }))
+  }
+
+  private _openaiAccounts?: OpenaiAccounts
+  get openaiAccounts(): OpenaiAccounts {
+    return (this._openaiAccounts ??= new OpenaiAccounts({ client: this.client }))
   }
 
   private _session?: Session
