@@ -13,6 +13,7 @@ import { ToolJsonSchema } from "@/tool/json-schema"
 import { ToolRegistry } from "@/tool/registry"
 import { Worktree } from "@/worktree"
 import { Effect, Option } from "effect"
+import { HttpClient } from "effect/unstable/http"
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
@@ -30,6 +31,7 @@ export const experimentalHandlers = HttpApiBuilder.group(InstanceHttpApi, "exper
     const account = yield* Account.Service
     const agents = yield* Agent.Service
     const auth = yield* Auth.Service
+    const http = yield* HttpClient.HttpClient
     const config = yield* Config.Service
     const mcp = yield* MCP.Service
     const project = yield* Project.Service
@@ -183,7 +185,7 @@ export const experimentalHandlers = HttpApiBuilder.group(InstanceHttpApi, "exper
       .handle("console", getConsole)
       .handle("consoleOrgs", listConsoleOrgs)
       .handle("consoleSwitch", switchConsole)
-      .handle("openaiAccounts", openAIAccountsHandler(auth))
+      .handle("openaiAccounts", openAIAccountsHandler(auth, http))
       .handle("openaiAccountsActivate", openAIAccountsActivateHandler(auth))
       .handle("tool", tool)
       .handle("toolIDs", toolIDs)

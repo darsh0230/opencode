@@ -77,6 +77,7 @@ import { PromptPopover, type AtOption, type SlashCommand } from "./prompt-input/
 import { PromptContextItems } from "./prompt-input/context-items"
 import { PromptImageAttachments } from "./prompt-input/image-attachments"
 import { PromptDragOverlay } from "./prompt-input/drag-overlay"
+import { PromptOpenAIUsage } from "./prompt-openai-usage"
 import { promptPlaceholder } from "./prompt-input/placeholder"
 import { createPromptInputTransientState } from "./prompt-input/transient-state"
 import { showToast } from "@/utils/toast"
@@ -1623,7 +1624,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       </DockShellForm>
       <Show when={store.mode === "normal" || store.mode === "shell"}>
         <DockTray attach="top">
-          <div class="px-1.75 pt-5.5 pb-2 flex items-center gap-2 min-w-0">
+          <div class="px-1.75 pt-5.5 pb-2 flex flex-wrap items-center gap-2 min-w-0">
             <div class="flex items-center gap-1.5 min-w-0 flex-1 relative">
               <div
                 class="h-7 flex items-center gap-1.5 min-w-0 absolute inset-0"
@@ -1785,6 +1786,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 </Show>
               </div>
             </div>
+            <Show when={store.mode === "normal"}>
+              <PromptOpenAIUsage providerID={props.controls.model.selection.current()?.provider?.id} />
+            </Show>
           </div>
         </DockTray>
       </Show>

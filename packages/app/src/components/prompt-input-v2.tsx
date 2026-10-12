@@ -8,6 +8,7 @@ import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import type { ReferenceInfo } from "@opencode-ai/sdk/v2/client"
 import { createEffect, createMemo, on, Show } from "solid-js"
 import { ModelSelectorPopoverV2 } from "@/components/dialog-select-model"
+import { PromptOpenAIUsage } from "@/components/prompt-openai-usage"
 import { DialogSelectModelUnpaidV2 } from "@/components/dialog-select-model-unpaid-v2"
 import type { PromptInputProps } from "@/components/prompt-input/contracts"
 import { normalizePromptHistoryEntry, promptLength, type PromptHistoryComment } from "@/components/prompt-input/history"
@@ -58,6 +59,7 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
         variantControlVisible={!props.controller.model.loading}
         attachKeybind={command.keybindParts("file.attach")}
         attachShortcut={command.keybind("file.attach")}
+        usageControl={<PromptOpenAIUsage providerID={props.controller.model.selection.current()?.provider?.id} />}
         modelControl={
           <PromptInputV2ModelControl
             loading={props.controller.model.loading}

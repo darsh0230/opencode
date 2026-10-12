@@ -816,12 +816,13 @@ export class OpenaiAccounts extends HeyApiClient {
   /**
    * List OpenAI OAuth accounts
    *
-   * List the OpenAI OAuth accounts stored as per-account auth entries in multi-account setups. Returns sanitized account metadata only; OAuth tokens are never exposed.
+   * List the OpenAI OAuth accounts stored as per-account auth entries in multi-account setups. Set usage=true to fetch current Codex quota windows and plan information. OAuth tokens are never exposed; unavailable usage is omitted.
    */
   public list<ThrowOnError extends boolean = false>(
     parameters?: {
       directory?: string
       workspace?: string
+      usage?: "true" | "false"
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -832,6 +833,7 @@ export class OpenaiAccounts extends HeyApiClient {
           args: [
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
+            { in: "query", key: "usage" },
           ],
         },
       ],

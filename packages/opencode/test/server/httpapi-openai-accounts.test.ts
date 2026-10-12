@@ -3,8 +3,9 @@ import path from "path"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { Global } from "@opencode-ai/core/global"
 import { Effect, Layer } from "effect"
-import { HttpClientResponse } from "effect/unstable/http"
-import { OpenAIAccountsPaths } from "../../src/server/routes/instance/httpapi/openai-accounts"
+import { HttpClient, HttpClientResponse } from "effect/unstable/http"
+import { OpenAIAccountsPaths, openAIAccountsHandler } from "../../src/server/routes/instance/httpapi/openai-accounts"
+import { Auth } from "@/auth"
 import { Session } from "@/session/session"
 import { Database } from "@opencode-ai/core/database/database"
 import { TestInstance } from "../fixture/fixture"
@@ -12,6 +13,7 @@ import { testEffect } from "../lib/effect"
 import { httpApiLayer, requestInDirectory } from "./httpapi-layer"
 
 const it = testEffect(Layer.mergeAll(LayerNode.compile(LayerNode.group([Session.node, Database.node])), httpApiLayer))
+const usageIt = testEffect(LayerNode.compile(Auth.node))
 
 function request(path: string, directory: string, init: RequestInit = {}) {
   return requestInDirectory(path, directory, init)
@@ -71,6 +73,9 @@ describe("experimental OpenAI account endpoints", () => {
         { accountID: "account-dimenl", email: "dimenl466@gmail.com", active: false },
       ])
       expect(JSON.stringify(body)).not.toContain("SECRET")
+      const withUsage = yield* request(`${OpenAIAccountsPaths.list}?usage=true`, tmp.directory)
+      expect(withUsage.status).toBe(200)
+      expect(yield* json(withUsage)).toEqual(body)
     }),
   )
 
@@ -137,6 +142,87 @@ describe("experimental OpenAI account endpoints", () => {
         body: JSON.stringify({ accountID: "missing" }),
       })
       expect(response.status).toBe(404)
+    }),
+  )
+
+  usageIt.live("fetches per-account usage without exposing credentials or changing the active account", () =>
+    Effect.gen(function* () {
+      yield* seedAuth(
+        Object.fromEntries(
+          Object.entries(accounts).map(([key, value]) => [
+            key,
+            "expires" in value ? { ...value, expires: Date.now() + 60_000 } : value,
+          ]),
+        ),
+      )
+      const auth = yield* Auth.Service
+      const before = yield* readAuth()
+      const client = HttpClient.make((req) => {
+        expect(req.url).toBe("https://chatgpt.com/backend-api/wham/usage")
+        const id = req.headers["chatgpt-account-id"]
+        expect(req.headers.authorization).toBe(
+          id === "account-gmiscss" ? "Bearer SECRET-ACCESS-GMIS" : "Bearer SECRET-ACCESS-DIMENL",
+        )
+        return Effect.succeed(
+          HttpClientResponse.fromWeb(
+            req,
+            Response.json({
+              plan_type: "plus",
+              rate_limit: {
+                primary_window: { used_percent: 25, limit_window_seconds: 18_000, reset_at: 2_000_000_000 },
+                secondary_window: { used_percent: 110, limit_window_seconds: 604_800, reset_after_seconds: 60 },
+              },
+              secret: "SECRET-PAYLOAD",
+            }),
+          ),
+        )
+      })
+      const body = yield* openAIAccountsHandler(auth, client)({ query: { usage: true } })
+      expect(body.map((account) => account.accountID)).toEqual(["account-gmiscss", "account-dimenl"])
+      for (const account of body) {
+        expect(account.usage?.planType).toBe("plus")
+        expect(account.usage?.windows[0]).toEqual({ usedPercent: 25, windowMinutes: 300, resetAtMs: 2_000_000_000_000 })
+        expect(account.usage?.windows[1]).toEqual({
+          usedPercent: 100,
+          windowMinutes: 10080,
+          resetAtMs: account.usage!.fetchedAt + 60_000,
+        })
+      }
+      expect(JSON.stringify(body)).not.toContain("SECRET")
+      expect(yield* readAuth()).toEqual(before)
+    }),
+  )
+
+  usageIt.live("keeps accounts selectable when usage is expired, invalid, or unavailable", () =>
+    Effect.gen(function* () {
+      const auth = yield* Auth.Service
+      const unexpected = HttpClient.make(() => Effect.die("unexpected usage request"))
+      yield* seedAuth(accounts)
+      const expected = [
+        { accountID: "account-gmiscss", email: "gmiscss@gmail.com", active: true },
+        { accountID: "account-dimenl", email: "dimenl466@gmail.com", active: false },
+      ]
+      expect(yield* openAIAccountsHandler(auth, unexpected)({ query: { usage: true } })).toEqual(expected)
+      yield* seedAuth(
+        Object.fromEntries(
+          Object.entries(accounts).map(([key, value]) => [
+            key,
+            "expires" in value ? { ...value, expires: Date.now() + 60_000 } : value,
+          ]),
+        ),
+      )
+      expect(yield* openAIAccountsHandler(auth, unexpected)({ query: {} })).toEqual(expected)
+      const client = HttpClient.make((req) =>
+        Effect.succeed(
+          HttpClientResponse.fromWeb(
+            req,
+            req.headers["chatgpt-account-id"] === "account-gmiscss"
+              ? Response.json({ rate_limit: { primary_window: { used_percent: "invalid" } } })
+              : new Response(null, { status: 401 }),
+          ),
+        ),
+      )
+      expect(yield* openAIAccountsHandler(auth, client)({ query: { usage: true } })).toEqual(expected)
     }),
   )
 })

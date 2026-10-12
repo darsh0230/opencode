@@ -2143,11 +2143,22 @@ export type EffectHttpApiErrorInternalServerError = {
   _tag: "InternalServerError"
 }
 
+export type OpenAiAccountUsage = {
+  fetchedAt: number
+  planType?: string
+  windows: Array<{
+    windowMinutes: number
+    usedPercent: number
+    resetAtMs: number
+  }>
+}
+
 export type OpenAiAccount = {
   accountID: string
   label?: string
   email?: string
   active: boolean
+  usage?: OpenAiAccountUsage
 }
 
 export type OpenAiAccountList = Array<OpenAiAccount>
@@ -7644,6 +7655,7 @@ export type ExperimentalOpenaiAccountsListData = {
   query?: {
     directory?: string
     workspace?: string
+    usage?: "true" | "false"
   }
   url: "/experimental/openai/accounts"
 }

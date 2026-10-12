@@ -41,6 +41,7 @@ export type PromptInputV2Props = {
   borderUnderlay?: boolean
   class?: string
   modelControl?: JSX.Element
+  usageControl?: JSX.Element
   variantControlVisible?: boolean
   attachKeybind?: string[]
   attachShortcut?: string
@@ -195,9 +196,9 @@ export function PromptInputV2(props: PromptInputV2Props) {
           </Show>
         </div>
 
-        <div class="flex h-11 items-center px-2">
+        <div class="flex min-h-11 items-end px-2 py-2">
           <div
-            class="flex min-w-0 flex-1 items-center gap-1"
+            class="flex min-w-0 flex-1 flex-wrap items-center gap-1"
             aria-hidden={state.mode === "shell"}
             inert={state.mode === "shell" ? true : undefined}
             style={buttons()}
@@ -253,6 +254,7 @@ export function PromptInputV2(props: PromptInputV2Props) {
                 </Show>
               )}
             </Show>
+            {props.usageControl}
           </div>
           <PromptInputV2SubmitButton
             mode={state.mode}

@@ -1,8 +1,10 @@
 import { Auth } from "@/auth"
-import { Effect, Schema } from "effect"
+import { Clock, Effect, Schema } from "effect"
+import { HttpClient, HttpClientResponse } from "effect/unstable/http"
 import { HttpApiEndpoint, HttpApiError, OpenApi } from "effect/unstable/httpapi"
 import { described } from "./groups/metadata"
-import { WorkspaceRoutingQuery } from "./middleware/workspace-routing"
+import { WorkspaceRoutingQuery, WorkspaceRoutingQueryFields } from "./middleware/workspace-routing"
+import { QueryBoolean } from "./groups/query"
 
 // Per-account OpenAI OAuth entries are written by the Codex multi-account
 // plugin under "openai/<label>" (legacy: "OpenAI (<label>)") auth keys. The
@@ -12,11 +14,47 @@ export const OpenAIAccountsPaths = {
   activate: "/experimental/openai/accounts/activate",
 } as const
 
+const OpenAIAccountUsage = Schema.Struct({
+  fetchedAt: Schema.Finite,
+  planType: Schema.optionalKey(Schema.String),
+  windows: Schema.Array(
+    Schema.Struct({
+      windowMinutes: Schema.Finite,
+      usedPercent: Schema.Finite,
+      resetAtMs: Schema.Finite,
+    }),
+  ),
+}).annotate({ identifier: "OpenAIAccountUsage" })
+
+const UsageWindow = Schema.Struct({
+  used_percent: Schema.optionalKey(Schema.Number),
+  limit_window_seconds: Schema.optionalKey(Schema.Number),
+  reset_at: Schema.optionalKey(Schema.Number),
+  reset_after_seconds: Schema.optionalKey(Schema.Number),
+})
+const UsagePayload = Schema.Struct({
+  plan_type: Schema.optionalKey(Schema.String),
+  rate_limit: Schema.optionalKey(
+    Schema.NullOr(
+      Schema.Struct({
+        primary_window: Schema.optionalKey(Schema.NullOr(UsageWindow)),
+        secondary_window: Schema.optionalKey(Schema.NullOr(UsageWindow)),
+      }),
+    ),
+  ),
+})
+
+export const OpenAIAccountsQuery = Schema.Struct({
+  ...WorkspaceRoutingQueryFields,
+  usage: Schema.optionalKey(QueryBoolean),
+})
+
 const OpenAIAccount = Schema.Struct({
   accountID: Schema.String,
   label: Schema.optionalKey(Schema.String),
   email: Schema.optionalKey(Schema.String),
   active: Schema.Boolean,
+  usage: Schema.optionalKey(OpenAIAccountUsage),
 }).annotate({ identifier: "OpenAIAccount" })
 
 const OpenAIAccountList = Schema.Array(OpenAIAccount).annotate({ identifier: "OpenAIAccountList" })
@@ -26,7 +64,7 @@ export const OpenAIAccountActivatePayload = Schema.Struct({
 })
 
 export const openAIAccountsEndpoint = HttpApiEndpoint.get("openaiAccounts", OpenAIAccountsPaths.list, {
-  query: WorkspaceRoutingQuery,
+  query: OpenAIAccountsQuery,
   success: described(OpenAIAccountList, "OpenAI OAuth accounts"),
   error: HttpApiError.InternalServerError,
 }).annotateMerge(
@@ -34,7 +72,7 @@ export const openAIAccountsEndpoint = HttpApiEndpoint.get("openaiAccounts", Open
     identifier: "experimental.openaiAccounts.list",
     summary: "List OpenAI OAuth accounts",
     description:
-      "List the OpenAI OAuth accounts stored as per-account auth entries in multi-account setups. Returns sanitized account metadata only; OAuth tokens are never exposed.",
+      "List the OpenAI OAuth accounts stored as per-account auth entries in multi-account setups. Set usage=true to fetch current Codex quota windows and plan information. OAuth tokens are never exposed; unavailable usage is omitted.",
   }),
 )
 
@@ -99,7 +137,7 @@ function sanitizeOpenAIAccount(record: { id: string; email?: string; label?: str
   }
 }
 
-function sortedOpenAIAccounts(all: Record<string, Auth.Info>) {
+function sortedOpenAIAccounts(all: Record<string, Auth.Info>): (typeof OpenAIAccount.Type)[] {
   const accounts = openAIAccounts(all)
   const activeID = activeOpenAIAccountID(all, accounts)
   return [...accounts.values()]
@@ -111,10 +149,75 @@ function sortedOpenAIAccounts(all: Record<string, Auth.Info>) {
     .map((record) => sanitizeOpenAIAccount(record, activeID))
 }
 
-export function openAIAccountsHandler(auth: Auth.Interface) {
-  return Effect.fn("ExperimentalHttpApi.openaiAccounts")(function* () {
+export function openAIAccountsHandler(auth: Auth.Interface, http: HttpClient.HttpClient) {
+  return Effect.fn("ExperimentalHttpApi.openaiAccounts")(function* (ctx: { query: typeof OpenAIAccountsQuery.Type }) {
     const all = yield* auth.all().pipe(Effect.catch(() => Effect.fail(new HttpApiError.InternalServerError({}))))
-    return sortedOpenAIAccounts(all)
+    const accounts = sortedOpenAIAccounts(all)
+    if (!ctx.query.usage) return accounts
+    const records = openAIAccounts(all)
+    return yield* Effect.forEach(
+      accounts,
+      (account) =>
+        Effect.gen(function* () {
+          const record = records.get(account.accountID)!
+          const now = yield* Clock.currentTimeMillis
+          if (record.entry.expires <= now) return account
+          const usage = yield* HttpClient.filterStatusOk(http)
+            .get("https://chatgpt.com/backend-api/wham/usage", {
+              headers: {
+                authorization: `Bearer ${record.entry.access}`,
+                "ChatGPT-Account-Id": record.id,
+                "User-Agent": "opencode-codex/0.1",
+                accept: "application/json",
+              },
+            })
+            .pipe(
+              Effect.flatMap(HttpClientResponse.schemaBodyJson(UsagePayload)),
+              Effect.map((payload) => {
+                const windows = [payload.rate_limit?.primary_window, payload.rate_limit?.secondary_window]
+                  .flatMap((window) => {
+                    if (
+                      !window ||
+                      !Number.isFinite(window.used_percent) ||
+                      !Number.isFinite(window.limit_window_seconds)
+                    )
+                      return []
+                    if (
+                      window.used_percent === undefined ||
+                      window.limit_window_seconds === undefined ||
+                      window.limit_window_seconds <= 0
+                    )
+                      return []
+                    const resetAtMs =
+                      window.reset_at && Number.isFinite(window.reset_at) && window.reset_at > 0
+                        ? window.reset_at > 1e12
+                          ? window.reset_at
+                          : window.reset_at * 1000
+                        : window.reset_after_seconds &&
+                            Number.isFinite(window.reset_after_seconds) &&
+                            window.reset_after_seconds > 0
+                          ? now + window.reset_after_seconds * 1000
+                          : undefined
+                    if (resetAtMs === undefined) return []
+                    return [
+                      {
+                        usedPercent: Math.max(0, Math.min(100, window.used_percent)),
+                        windowMinutes: Math.round(window.limit_window_seconds / 60),
+                        resetAtMs,
+                      },
+                    ]
+                  })
+                  .sort((a, b) => a.windowMinutes - b.windowMinutes)
+                if (!windows.length) return undefined
+                return { fetchedAt: now, ...(payload.plan_type ? { planType: payload.plan_type } : {}), windows }
+              }),
+              Effect.timeout("10 seconds"),
+              Effect.catch(() => Effect.succeed(undefined)),
+            )
+          return usage ? { ...account, usage } : account
+        }),
+      { concurrency: 4 },
+    )
   })
 }
 
