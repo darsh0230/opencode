@@ -3,6 +3,7 @@ import { attach } from "./run-service"
 import * as Observability from "@opencode-ai/core/observability"
 
 import { FSUtil } from "@opencode-ai/core/fs-util"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
 import { Database } from "@opencode-ai/core/database/database"
 import { Auth } from "@/auth"
 import { Account } from "@/account/account"
@@ -59,6 +60,8 @@ export const AppLayer = AppNodeBuilderV1.build(
   LayerNode.group([
     Npm.node,
     FSUtil.node,
+    AttachmentStore.node,
+    AttachmentStore.cleanupNode,
     Database.node,
     Auth.node,
     Account.node,

@@ -1,4 +1,6 @@
 import { SessionV2 } from "@opencode-ai/core/session"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
+import { HttpServerResponse } from "effect/unstable/http"
 import { DateTime, Effect, Stream } from "effect"
 import { HttpApiBuilder, HttpApiSchema } from "effect/unstable/httpapi"
 import { Api } from "../api"
@@ -19,8 +21,29 @@ const DefaultSessionHistoryLimit = 50
 export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handlers) =>
   Effect.gen(function* () {
     const session = yield* SessionV2.Service
+    const attachments = yield* AttachmentStore.Service
 
     return handlers
+      .handleRaw(
+        "session.attachment",
+        Effect.fn(function* (ctx) {
+          const image = yield* attachments
+            .read(ctx.params.sessionID, ctx.params.attachmentID, ctx.query.variant)
+            .pipe(
+              Effect.mapError(
+                () =>
+                  new SessionNotFoundError({
+                    sessionID: ctx.params.sessionID,
+                    message: "Session attachment not found",
+                  }),
+              ),
+            )
+          return HttpServerResponse.uint8Array(image.content, {
+            contentType: image.mime,
+            headers: { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" },
+          })
+        }),
+      )
       .handle(
         "session.list",
         Effect.fn(function* (ctx) {

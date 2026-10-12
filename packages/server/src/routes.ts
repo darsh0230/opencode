@@ -1,4 +1,5 @@
 import { Database } from "@opencode-ai/core/database/database"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { httpClient } from "@opencode-ai/core/effect/app-node-platform"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
@@ -24,6 +25,8 @@ import { layer as locationLayer } from "./location"
 import { sessionLocationLayer } from "./middleware/session-location"
 
 const applicationServices = LayerNode.group([
+  AttachmentStore.node,
+  AttachmentStore.cleanupNode,
   Database.node,
   EventV2.node,
   httpClient,

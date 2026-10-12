@@ -10,6 +10,8 @@ import type {
   AppLogResponses,
   AppSkillsErrors,
   AppSkillsResponses,
+  AttachmentId,
+  AttachmentVariant,
   Auth as Auth3,
   AuthRemoveErrors,
   AuthRemoveResponses,
@@ -181,6 +183,8 @@ import type {
   QuestionV2Reply,
   SessionAbortErrors,
   SessionAbortResponses,
+  SessionAttachmentErrors,
+  SessionAttachmentResponses,
   SessionChildrenErrors,
   SessionChildrenResponses,
   SessionCommandErrors,
@@ -339,6 +343,8 @@ import type {
   V2ReferenceListResponses,
   V2SessionActiveErrors,
   V2SessionActiveResponses,
+  V2SessionAttachmentErrors,
+  V2SessionAttachmentResponses,
   V2SessionCompactErrors,
   V2SessionCompactResponses,
   V2SessionContextErrors,
@@ -3881,6 +3887,42 @@ export class Session2 extends HeyApiClient {
   }
 
   /**
+   * Read session attachment
+   *
+   * Read an original tool image or thumbnail belonging to this session.
+   */
+  public attachment<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      attachmentID: AttachmentId
+      directory?: string
+      workspace?: string
+      variant?: AttachmentVariant
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "attachmentID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "variant" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionAttachmentResponses, SessionAttachmentErrors, ThrowOnError>({
+      url: "/session/{sessionID}/attachment/{attachmentID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
    * Delete message
    *
    * Permanently delete a specific message and all of its parts from a session without reverting file changes.
@@ -5510,6 +5552,38 @@ export class Question2 extends HeyApiClient {
 }
 
 export class Session3 extends HeyApiClient {
+  /**
+   * Read session attachment
+   *
+   * Read an original tool image or its thumbnail belonging to this session.
+   */
+  public attachment<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      attachmentID: AttachmentId
+      variant?: AttachmentVariant
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "attachmentID" },
+            { in: "query", key: "variant" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<V2SessionAttachmentResponses, V2SessionAttachmentErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/attachment/{attachmentID}",
+      ...options,
+      ...params,
+    })
+  }
+
   /**
    * List sessions
    *

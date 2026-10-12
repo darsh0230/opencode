@@ -323,6 +323,53 @@
   }
 }
 
+[data-slot="tool-images"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block-start: 8px;
+  min-inline-size: 0;
+}
+
+[data-component="tool-image-thumbnail"] {
+  position: relative;
+  inline-size: 200px;
+  max-inline-size: 100%;
+  block-size: 128px;
+  overflow: hidden;
+  border: 1px solid var(--border-weak-base);
+  border-radius: 8px;
+  background: var(--background-base);
+  padding: 0;
+  cursor: zoom-in;
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+
+  img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: contain;
+  }
+
+  [data-slot="tool-image-placeholder"] {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    color: var(--text-weak);
+    font-size: 12px;
+  }
+}
+
 [data-component="tool-output"] {
   white-space: pre;
   padding: 0;

@@ -9,6 +9,8 @@ import {
 } from "@opencode-ai/llm"
 import { SessionMessage } from "../message"
 import type { FileAttachment } from "../prompt"
+import { Effect, Schema } from "effect"
+import { AttachmentStore } from "../../attachment-store"
 
 const media = (file: FileAttachment): ContentPart => ({
   type: "media",
@@ -38,8 +40,6 @@ const toolCall = (tool: SessionMessage.AssistantTool, providerMetadata: Provider
 
 const toolResult = (tool: SessionMessage.AssistantTool, providerMetadata: ProviderMetadata | undefined) => {
   if (tool.state.status === "completed") {
-    // TODO: Materialize remote and managed URIs before provider-history lowering.
-    // ToolOutput.toResultValue rejects unresolved URIs rather than treating them as media bytes.
     const result =
       tool.provider?.executed === true && tool.state.result !== undefined
         ? tool.state.result
@@ -169,3 +169,54 @@ ${message.recent}
 /** Translate projected V2 Session history into canonical @opencode-ai/llm context. */
 export const toLLMMessages = (messages: readonly SessionMessage.Message[], model: Model) =>
   messages.flatMap((message) => toLLMMessage(message, model))
+
+/** Load only the selected history's managed media; durable history remains reference-only. */
+export const toLLMMessagesEffect = Effect.fn("SessionRunner.toLLMMessages")(function* (
+  messages: readonly SessionMessage.Message[],
+  model: Model,
+  attachments: AttachmentStore.Interface,
+  sessionID: string,
+) {
+  const completed = messages.flatMap((message) =>
+    message.type === "assistant"
+      ? message.content.filter(
+          (part): part is SessionMessage.AssistantTool => part.type === "tool" && part.state.status === "completed",
+        )
+      : [],
+  )
+  const states = yield* Schema.decodeUnknownEffect(Schema.toType(Schema.Array(SessionMessage.ToolStateCompleted)))(
+    yield* attachments.materialize(
+      sessionID,
+      completed.map((part) => ({ ...part.state, input: {} })),
+      true,
+    ),
+  ).pipe(Effect.catch((error) => Effect.logWarning("Invalid materialized tool history", { error }).pipe(Effect.as([]))))
+  const resolvedStates = new Map(completed.map((part, index) => [part, states[index]]))
+  const resolved = messages.map((message) =>
+    message.type !== "assistant"
+      ? message
+      : {
+          ...message,
+          content: message.content.map((part) =>
+            part.type !== "tool" || part.state.status !== "completed"
+              ? part
+              : {
+                  ...part,
+                  state: {
+                    ...(resolvedStates.get(part) ?? {
+                      ...part.state,
+                      attachments: [],
+                      result: undefined,
+                      content: [
+                        ...part.state.content.filter((item) => item.type !== "file"),
+                        { type: "text" as const, text: AttachmentStore.UNAVAILABLE },
+                      ],
+                    }),
+                    input: part.state.input,
+                  },
+                },
+          ),
+        },
+  )
+  return toLLMMessages(resolved, model)
+})

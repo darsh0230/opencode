@@ -5,13 +5,16 @@ import { useLocation, useNavigate, useParams } from "@solidjs/router"
 import { type Accessor, createEffect, createMemo, createResource, onCleanup, type ParentProps, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { LocalProvider } from "@/context/local"
-import { SDKProvider } from "@/context/sdk"
+import { SDKProvider, useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
 import { decode64 } from "@/utils/base64"
 import { Schema } from "effect"
 import type { ServerConnection } from "@/context/server"
 import { sessionHref } from "@/utils/session-route"
 import { useServerSync } from "@/context/server-sync"
+import { toolImagePath } from "@opencode-ai/session-ui/tool-images"
+import { Attachment } from "@opencode-ai/schema/attachment"
+import { ToolImageCache } from "@/utils/tool-image-cache"
 
 export function DirectoryDataProvider(
   props: ParentProps<{
@@ -25,7 +28,46 @@ export function DirectoryDataProvider(
   const params = useParams()
   const sync = useSync()
   const serverSync = useServerSync()
+  const sdk = useSDK()
   const directory = () => (typeof props.directory === "function" ? props.directory() : props.directory)
+  const images = new ToolImageCache()
+  const resolveToolImage = (url: string, toolID: string, variant: "original" | "thumbnail" = "original") => {
+    const attachmentID = Attachment.id(url)
+    if (attachmentID) {
+      const sessionID = params.id
+      if (!sessionID) return Promise.resolve(undefined)
+      const client = sdk()
+      const key = `${client.scope}\n${sessionID}\n${attachmentID}\n${variant}`
+      const load = () =>
+        client.protocol
+          .then(async (protocol) => {
+            const response =
+              protocol === "v1"
+                ? await client.client.session.attachment({ sessionID, attachmentID, variant }, { parseAs: "blob" })
+                : await client.client.v2.session.attachment({ sessionID, attachmentID, variant }, { parseAs: "blob" })
+            return response.data instanceof Blob ? response.data : undefined
+          })
+          .catch(() => undefined)
+      // Original images are owned by the preview component, not the directory cache.
+      if (variant === "original") return load()
+      return images.resolve(key, load)
+    }
+    const path = toolImagePath(url, directory())
+    if (!path) return Promise.resolve(undefined)
+    const client = sdk()
+    // Screenshot tools may overwrite the same filename on successive calls.
+    const key = `${client.scope}\n${directory()}\n${toolID}\n${path}`
+    const load = () =>
+      client.client.file.read({ path }).then(
+        (response) => {
+          const content = response.data
+          if (content?.encoding !== "base64" || !content.mimeType?.startsWith("image/")) return
+          return `data:${content.mimeType};base64,${content.content}`
+        },
+        () => undefined,
+      )
+    return variant === "original" ? load() : images.resolve(key, load)
+  }
   const slug = createMemo(() => base64Encode(directory()))
   const href = (sessionID: string) => {
     const server = props.server?.()
@@ -66,6 +108,7 @@ export function DirectoryDataProvider(
           sessionID={params.id}
           onNavigateToSession={(sessionID: string) => navigate(href(sessionID))}
           onSessionHref={href}
+          resolveToolImage={resolveToolImage}
         >
           <LocalProvider>{props.children}</LocalProvider>
         </DataProvider>

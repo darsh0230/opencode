@@ -1,4 +1,5 @@
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
 import { Agent } from "@/agent/agent"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { EventV2Bridge } from "@/event-v2-bridge"
@@ -36,7 +37,7 @@ import {
   SummarizePayload,
   UpdatePayload,
 } from "../groups/session"
-import { PermissionNotFoundError } from "../errors"
+import { ApiNotFoundError, PermissionNotFoundError } from "../errors"
 import * as SessionError from "./session-errors"
 
 const tryParseJson = (text: string) =>
@@ -48,6 +49,7 @@ const tryParseJson = (text: string) =>
 export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", (handlers) =>
   Effect.gen(function* () {
     const session = yield* Session.Service
+    const attachments = yield* AttachmentStore.Service
     const shareSvc = yield* SessionShare.Service
     const promptSvc = yield* SessionPrompt.Service
     const revertSvc = yield* SessionRevert.Service
@@ -411,6 +413,24 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
     })
 
     return handlers
+      .handleRaw(
+        "attachment",
+        Effect.fn(function* (ctx) {
+          yield* requireSession(ctx.params.sessionID)
+          const image = yield* attachments
+            .read(ctx.params.sessionID, ctx.params.attachmentID, ctx.query.variant)
+            .pipe(
+              Effect.mapError(
+                () =>
+                  new ApiNotFoundError({ name: "NotFoundError", data: { message: "Session attachment not found" } }),
+              ),
+            )
+          return HttpServerResponse.uint8Array(image.content, {
+            contentType: image.mime,
+            headers: { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" },
+          })
+        }),
+      )
       .handle("list", list)
       .handle("status", status)
       .handle("get", get)

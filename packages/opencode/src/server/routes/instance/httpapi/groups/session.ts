@@ -1,4 +1,5 @@
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+import { Attachment } from "@opencode-ai/schema/attachment"
 import { Permission } from "@/permission"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 
@@ -186,6 +187,18 @@ export const SessionApi = HttpApi.make("session")
             identifier: "session.messages",
             summary: "Get session messages",
             description: "Retrieve all messages in a session, including user prompts and AI responses.",
+          }),
+        ),
+        HttpApiEndpoint.get("attachment", "/session/:sessionID/attachment/:attachmentID", {
+          params: { sessionID: SessionID, attachmentID: Attachment.ID },
+          query: Schema.Struct({ ...WorkspaceRoutingQueryFields, variant: Schema.optional(Attachment.Variant) }),
+          success: Schema.Uint8Array.pipe(HttpApiSchema.asUint8Array()),
+          error: ApiNotFoundError,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.attachment",
+            summary: "Read session attachment",
+            description: "Read an original tool image or thumbnail belonging to this session.",
           }),
         ),
         HttpApiEndpoint.get("message", SessionPaths.message, {

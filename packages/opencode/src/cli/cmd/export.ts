@@ -1,4 +1,5 @@
 import { Session } from "@/session/session"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { MessageV2 } from "../../session/message-v2"
 import { SessionID } from "../../session/schema"
@@ -6,7 +7,7 @@ import { effectCmd, fail } from "../effect-cmd"
 import { UI } from "../ui"
 import * as prompts from "@clack/prompts"
 import { EOL } from "os"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 
 function redact(kind: string, id: string, value: string) {
   return value.trim() ? `[redacted:${kind}:${id}]` : value
@@ -24,7 +25,7 @@ function span(id: string, value: { value: string; start: number; end: number }) 
   }
 }
 
-function diff(kind: string, diffs: { file?: string; patch?: string }[] | undefined) {
+function diff(kind: string, diffs: readonly { file?: string; patch?: string }[] | undefined) {
   return diffs?.map((item, i) => ({
     ...item,
     file: item.file === undefined ? undefined : redact(`${kind}-file`, String(i), item.file),
@@ -32,7 +33,7 @@ function diff(kind: string, diffs: { file?: string; patch?: string }[] | undefin
   }))
 }
 
-function source(part: SessionV1.FilePart) {
+function source(part: typeof SessionV1.FilePart.Type) {
   if (!part.source) return part.source
   if (part.source.type === "symbol") {
     return {
@@ -57,7 +58,7 @@ function source(part: SessionV1.FilePart) {
   }
 }
 
-function filepart(part: SessionV1.FilePart): SessionV1.FilePart {
+function filepart(part: typeof SessionV1.FilePart.Type) {
   return {
     ...part,
     url: redact("file-url", part.id, part.url),
@@ -66,7 +67,7 @@ function filepart(part: SessionV1.FilePart): SessionV1.FilePart {
   }
 }
 
-function part(part: SessionV1.Part): SessionV1.Part {
+function part(part: typeof SessionV1.Part.Type): typeof SessionV1.Part.Type {
   switch (part.type) {
     case "text":
       return {
@@ -160,7 +161,7 @@ function part(part: SessionV1.Part): SessionV1.Part {
 
 const partFn = part
 
-function sanitize(data: { info: Session.Info; messages: SessionV1.WithParts[] }) {
+function sanitize(data: { info: typeof Session.Info.Type; messages: readonly (typeof SessionV1.WithParts.Type)[] }) {
   return {
     info: {
       ...data.info,
@@ -218,6 +219,19 @@ function sanitize(data: { info: Session.Info; messages: SessionV1.WithParts[] })
     })),
   }
 }
+
+/** Resolve portable media before redaction so sanitized archives contain no host-local references. */
+export const prepareExport = Effect.fn("SessionExport.prepare")(function* (
+  data: { info: typeof Session.Info.Type; messages: readonly (typeof SessionV1.WithParts.Type)[] },
+  redacted = false,
+) {
+  const attachments = yield* AttachmentStore.Service
+  const portable = yield* attachments.materialize(data.info.id, data)
+  const decoded = yield* Schema.decodeUnknownEffect(
+    Schema.toType(Schema.Struct({ info: Session.Info, messages: Schema.Array(SessionV1.WithParts) })),
+  )(portable)
+  return redacted ? sanitize(decoded) : decoded
+})
 
 export const ExportCommand = effectCmd({
   command: "export [sessionID]",
@@ -286,7 +300,8 @@ const run = Effect.fn("Cli.export.body")(function* (args: { sessionID?: string; 
 
     const exportData = { info: sessionInfo, messages }
 
-    process.stdout.write(JSON.stringify(args.sanitize ? sanitize(exportData) : exportData, null, 2))
+    const portable = yield* prepareExport(exportData, args.sanitize)
+    process.stdout.write(JSON.stringify(portable, null, 2))
     process.stdout.write(EOL)
   }).pipe(Effect.catchCause(() => fail(`Session not found: ${sessionID!}`)))
 })

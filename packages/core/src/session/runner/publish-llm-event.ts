@@ -1,5 +1,6 @@
 import { ToolOutput, type LLMEvent, type ProviderMetadata, type ToolResultValue, type Usage } from "@opencode-ai/llm"
-import { DateTime, Effect } from "effect"
+import { DateTime, Effect, Schema } from "effect"
+import { AttachmentStore } from "../../attachment-store"
 import { EventV2 } from "../../event"
 import { ModelV2 } from "../../model"
 import { SessionEvent } from "../event"
@@ -11,6 +12,7 @@ type Input = {
   readonly agent: string
   readonly model: ModelV2.Ref
   readonly snapshot?: string
+  readonly directory?: string
 }
 
 const safe = (value: number | undefined) => Math.max(0, Number.isFinite(value) ? (value ?? 0) : 0)
@@ -50,8 +52,14 @@ const settledOutput = (value: ToolOutput | undefined, result: ToolResultValue): 
   return { structured: record(settled.structured), content: settled.content }
 }
 
+const decodeToolSuccess = Schema.decodeUnknownEffect(Schema.toType(SessionEvent.Tool.Success.data))
+
 /** Persist one provider turn without executing tools or starting a continuation turn. */
-export const createLLMEventPublisher = (events: EventV2.Interface, input: Input) => {
+export const createLLMEventPublisher = (
+  events: EventV2.Interface,
+  input: Input,
+  attachments?: AttachmentStore.Interface,
+) => {
   const tools = new Map<
     string,
     {
@@ -343,7 +351,6 @@ export const createLLMEventPublisher = (events: EventV2.Interface, input: Input)
           if (event.result.type === "error") return
           return yield* Effect.die(`Duplicate tool result: ${event.id}`)
         }
-        tool.settled = true
         const result = settledOutput(event.output, event.result)
         const provider = {
           executed: event.providerExecuted === true || tool.providerExecuted,
@@ -359,18 +366,40 @@ export const createLLMEventPublisher = (events: EventV2.Interface, input: Input)
             result: event.result,
             provider,
           })
+          tool.settled = true
           return
         }
-        yield* events.publish(SessionEvent.Tool.Success, {
+        const captured =
+          attachments &&
+          input.directory &&
+          !result.content.some((part) => part.type === "file" && part.mime.startsWith("image/"))
+            ? yield* attachments
+                .capture(input.sessionID, input.directory, result)
+                .pipe(Effect.catch(() => Effect.succeed([])))
+            : []
+        const data = {
           sessionID: input.sessionID,
           timestamp: yield* timestamp,
           assistantMessageID: tool.assistantMessageID,
           callID: event.id,
           ...result,
+          content: [...result.content, ...captured.map((file) => ({ type: "file" as const, ...file }))],
           outputPaths,
           ...(provider.executed ? { result: event.result } : {}),
           provider,
-        })
+        }
+        yield* events.publish(
+          SessionEvent.Tool.Success,
+          attachments
+            ? yield* decodeToolSuccess(yield* attachments.externalizeRecovering(input.sessionID, data)).pipe(
+                Effect.catch((error) =>
+                  Effect.logWarning("Invalid externalized tool result", { error }).pipe(Effect.as(data)),
+                ),
+              )
+            : data,
+        )
+        // Settlement follows durable publication; the guard still rejects duplicate successful results.
+        tool.settled = true
         return
       }
       case "tool-error": {
@@ -379,7 +408,6 @@ export const createLLMEventPublisher = (events: EventV2.Interface, input: Input)
         if (tool.name !== event.name)
           return yield* Effect.die(`Tool error name changed for ${event.id}: ${tool.name} -> ${event.name}`)
         if (tool.settled) return yield* Effect.die(`Duplicate tool error: ${event.id}`)
-        tool.settled = true
         yield* events.publish(SessionEvent.Tool.Failed, {
           sessionID: input.sessionID,
           timestamp: yield* timestamp,
@@ -391,6 +419,7 @@ export const createLLMEventPublisher = (events: EventV2.Interface, input: Input)
             ...(event.providerMetadata === undefined ? {} : { metadata: event.providerMetadata }),
           },
         })
+        tool.settled = true
         return
       }
       case "step-finish":

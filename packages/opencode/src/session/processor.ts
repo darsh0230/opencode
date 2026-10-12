@@ -1,6 +1,7 @@
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
+import { InstanceState } from "@/effect/instance-state"
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
-import { Image } from "@/image/image"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { Cause, Deferred, Effect, Exit, Layer, Context, Scope, Schema } from "effect"
 import * as Stream from "effect/Stream"
@@ -24,7 +25,7 @@ import { errorMessage } from "@/util/error"
 import { isRecord } from "@/util/record"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { Database } from "@opencode-ai/core/database/database"
-import { Usage, type LLMEvent } from "@opencode-ai/llm"
+import { ToolOutput, Usage, type LLMEvent } from "@opencode-ai/llm"
 
 const DOOM_LOOP_THRESHOLD = 3
 export type Result = "compact" | "stop" | "continue"
@@ -82,6 +83,7 @@ const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const session = yield* Session.Service
+    const attachments = yield* AttachmentStore.Service
     const config = yield* Config.Service
     const snapshot = yield* Snapshot.Service
     const agents = yield* Agent.Service
@@ -91,7 +93,6 @@ const layer = Layer.effect(
     const summary = yield* SessionSummary.Service
     const scope = yield* Scope.Scope
     const status = yield* SessionStatus.Service
-    const image = yield* Image.Service
     const events = yield* EventV2Bridge.Service
     const database = yield* Database.Service
 
@@ -267,6 +268,28 @@ const layer = Layer.effect(
               : undefined,
           }
         }
+        const output = value.output ?? ToolOutput.fromResultValue(value.result)
+        if (output?.content.length)
+          return {
+            title: value.name,
+            metadata: isRecord(output.structured) ? output.structured : {},
+            output: output.content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("\n"),
+            attachments: output.content.flatMap((part) =>
+              part.type === "file"
+                ? [
+                    {
+                      type: "file" as const,
+                      id: PartID.ascending(),
+                      sessionID: ctx.assistantMessage.sessionID,
+                      messageID: ctx.assistantMessage.id,
+                      mime: part.mime,
+                      filename: part.name,
+                      url: part.uri,
+                    },
+                  ]
+                : [],
+            ),
+          }
         return {
           title: value.name,
           metadata: value.result.type === "json" && isRecord(value.result.value) ? value.result.value : {},
@@ -388,28 +411,34 @@ const layer = Layer.effect(
               return
             }
             const rawOutput = toolResultOutput(value)
-            const normalized = yield* Effect.forEach(rawOutput.attachments ?? [], (attachment) =>
-              attachment.mime.startsWith("image/")
-                ? image.normalize(attachment).pipe(
-                    Effect.catchIf(
-                      (error) => error instanceof Image.ResizerUnavailableError,
-                      () => Effect.succeed(attachment),
-                    ),
-                    Effect.exit,
-                  )
-                : Effect.succeed(Exit.succeed<SessionV1.FilePart>(attachment)),
-            )
-            const omitted = normalized.filter(Exit.isFailure).length
-            const attachments = normalized.filter(Exit.isSuccess).map((item) => item.value)
-            const output = {
+            // Preserve originals; provider-sized images are materialized at request time.
+            const captured = rawOutput.attachments?.some((file) => file.mime.startsWith("image/"))
+              ? []
+              : yield* attachments
+                  .capture(ctx.assistantMessage.sessionID, yield* InstanceState.directory, {
+                    output: rawOutput.output,
+                    metadata: rawOutput.metadata,
+                  })
+                  .pipe(Effect.catch(() => Effect.succeed([])))
+            yield* completeToolCall(value.id, {
               ...rawOutput,
-              output:
-                omitted === 0
-                  ? rawOutput.output
-                  : `${rawOutput.output}\n\n[${omitted} image${omitted === 1 ? "" : "s"} omitted: could not be resized below the image size limit.]`,
-              attachments: attachments.length ? attachments : undefined,
-            }
-            yield* completeToolCall(value.id, output)
+              ...(rawOutput.attachments?.length || captured.length
+                ? {
+                    attachments: [
+                      ...(rawOutput.attachments ?? []),
+                      ...captured.map((file) => ({
+                        type: "file" as const,
+                        id: PartID.ascending(),
+                        messageID: ctx.assistantMessage.id,
+                        sessionID: ctx.assistantMessage.sessionID,
+                        url: file.uri,
+                        mime: file.mime,
+                        filename: file.name,
+                      })),
+                    ],
+                  }
+                : {}),
+            })
             return
           }
 
@@ -714,6 +743,7 @@ export const node = LayerNode.make({
   service: Service,
   layer: layer,
   deps: [
+    AttachmentStore.node,
     Session.node,
     Config.node,
     Snapshot.node,
@@ -723,7 +753,6 @@ export const node = LayerNode.make({
     Plugin.node,
     SessionSummary.node,
     SessionStatus.node,
-    Image.node,
     EventV2Bridge.node,
     Database.node,
   ],

@@ -1,5 +1,6 @@
 import type { Session as SDKSession, Message, Part } from "@opencode-ai/sdk/v2"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
 import { Session } from "@/session/session"
 import { MessageV2 } from "../../session/message-v2"
 import { CliError, effectCmd } from "../effect-cmd"
@@ -110,6 +111,7 @@ export const ImportCommand = effectCmd({
 const runImport = Effect.fn("Cli.import.body")(function* (file: string, ctx: InstanceContext) {
   const share = yield* ShareNext.Service
   const fs = yield* FSUtil.Service
+  const attachments = yield* AttachmentStore.Service
   const { db } = yield* Database.Service
 
   let exportData: ExportData | undefined
@@ -209,7 +211,7 @@ const runImport = Effect.fn("Cli.import.body")(function* (file: string, ctx: Ins
       .pipe(Effect.orDie)
 
     for (const part of msg.parts) {
-      const partInfo = decodePart(part) as SessionV1.Part
+      const partInfo = yield* MessageV2.externalizeToolPart(attachments, { ...decodePart(part), sessionID: info.id })
       const { id: partId, sessionID: _s, messageID, ...partData } = partInfo
       yield* db
         .insert(PartTable)

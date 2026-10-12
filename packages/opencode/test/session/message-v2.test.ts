@@ -9,6 +9,12 @@ import { SessionID, MessageID, PartID } from "../../src/session/schema"
 import { Question } from "../../src/question"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
+import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { Effect } from "effect"
+import { testEffect } from "../lib/effect"
+
+const mediaTests = testEffect(LayerNode.compile(AttachmentStore.node))
 
 const sessionID = SessionID.make("session")
 const providerID = ProviderV2.ID.make("test")
@@ -73,6 +79,49 @@ function userInfo(id: string): SessionV1.User {
     mode: "",
   } as unknown as SessionV1.User
 }
+
+mediaTests.live("missing managed media preserves legacy tool output across later turns and import", () =>
+  Effect.gen(function* () {
+    const messageID = MessageID.ascending()
+    const part: SessionV1.ToolPart = {
+      type: "tool",
+      id: PartID.ascending(),
+      sessionID,
+      messageID,
+      callID: "screen",
+      tool: "screenshot",
+      state: {
+        status: "completed",
+        input: {},
+        title: "Screenshot",
+        output: "Tool finished",
+        metadata: {},
+        time: { start: 1, end: 2 },
+        attachments: [
+          {
+            type: "file",
+            id: PartID.ascending(),
+            sessionID,
+            messageID,
+            mime: "image/png",
+            url: `opencode-attachment:${"f".repeat(64)}.png`,
+          },
+        ],
+      },
+    }
+    const history = [{ info: assistantInfo(messageID, MessageID.ascending()), parts: [part] }]
+    const first = yield* MessageV2.toModelMessagesEffect(history, model)
+    const second = yield* MessageV2.toModelMessagesEffect(history, model)
+    expect(JSON.stringify(first)).toContain("Tool finished")
+    expect(JSON.stringify(first)).toContain(AttachmentStore.UNAVAILABLE)
+    expect(JSON.stringify(second)).not.toContain("opencode-attachment:")
+    const store = yield* AttachmentStore.Service
+    const imported = yield* MessageV2.externalizeToolPart(store, part)
+    expect(JSON.stringify(imported)).toContain("Tool finished")
+    expect(JSON.stringify(imported)).toContain(AttachmentStore.UNAVAILABLE)
+    expect(JSON.stringify(imported)).not.toContain("opencode-attachment:")
+  }),
+)
 
 function assistantInfo(
   id: string,

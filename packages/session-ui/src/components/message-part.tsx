@@ -65,6 +65,8 @@ import { partDefaultOpen } from "./part-default-open"
 import { animate } from "motion"
 import { attached, inline, kind, typeLabel } from "./message-file"
 import { readPartText } from "./message-part-text"
+import { toolImages } from "./tool-images"
+import { ToolImageThumbnail } from "./tool-image"
 import { SessionProgressIndicatorV2 } from "../v2/components/session-progress-indicator-v2"
 
 async function writeClipboard(text: string): Promise<boolean> {
@@ -826,7 +828,11 @@ export function AssistantParts(props: {
 }
 
 function isContextGroupTool(part: PartType): part is ToolPart {
-  return part.type === "tool" && CONTEXT_GROUP_TOOLS.has(part.tool)
+  return (
+    part.type === "tool" &&
+    CONTEXT_GROUP_TOOLS.has(part.tool) &&
+    !(part.state.status === "completed" && part.state.attachments?.some((file) => file.mime.startsWith("image/")))
+  )
 }
 
 function contextToolDetail(part: ToolPart): string | undefined {
@@ -1564,6 +1570,7 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
   })
 
   const render = createMemo(() => ToolRegistry.render(part().tool) ?? GenericTool)
+  const images = createMemo(() => toolImages(part().state))
   const controlledOpen = () => (props.onToolOpenChange ? (props.toolOpen ?? props.defaultOpen) : undefined)
   const handleToolOpenChange = (open: boolean) => props.onToolOpenChange?.(open)
 
@@ -1627,6 +1634,13 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
             />
           </Match>
         </Switch>
+        <Show when={images().length > 0}>
+          <div data-slot="tool-images">
+            <For each={images()}>
+              {(image) => <ToolImageThumbnail image={image} toolID={part().id} onLoad={props.onContentRendered} />}
+            </For>
+          </div>
+        </Show>
       </div>
     </Show>
   )

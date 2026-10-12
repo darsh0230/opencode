@@ -2694,6 +2694,12 @@ export type UnauthorizedError = {
   message: string
 }
 
+export type SessionNotFoundError = {
+  _tag: "SessionNotFoundError"
+  sessionID: string
+  message: string
+}
+
 export type SessionsResponse = {
   data: Array<SessionV2Info>
   cursor: {
@@ -2709,12 +2715,6 @@ export type InvalidCursorError = {
 
 export type SessionActive = {
   type: "running"
-}
-
-export type SessionNotFoundError = {
-  _tag: "SessionNotFoundError"
-  sessionID: string
-  message: string
 }
 
 export type PromptInput = {
@@ -3865,6 +3865,10 @@ export type PtyTicketConnectToken = {
   ticket: string
   expires_in: number
 }
+
+export type AttachmentId = string
+
+export type AttachmentVariant = "original" | "thumbnail"
 
 export type WorkspaceEventConnectionStatus = {
   workspaceID: string
@@ -9929,6 +9933,42 @@ export type SessionPromptResponses = {
 
 export type SessionPromptResponse = SessionPromptResponses[keyof SessionPromptResponses]
 
+export type SessionAttachmentData = {
+  body?: never
+  path: {
+    sessionID: string
+    attachmentID: AttachmentId
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+    variant?: AttachmentVariant
+  }
+  url: "/session/{sessionID}/attachment/{attachmentID}"
+}
+
+export type SessionAttachmentErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionAttachmentError = SessionAttachmentErrors[keyof SessionAttachmentErrors]
+
+export type SessionAttachmentResponses = {
+  /**
+   * Success
+   */
+  200: Blob | File
+}
+
+export type SessionAttachmentResponse = SessionAttachmentResponses[keyof SessionAttachmentResponses]
+
 export type SessionDeleteMessageData = {
   body?: never
   path: {
@@ -11414,6 +11454,44 @@ export type V2AgentListResponses = {
 }
 
 export type V2AgentListResponse = V2AgentListResponses[keyof V2AgentListResponses]
+
+export type V2SessionAttachmentData = {
+  body?: never
+  path: {
+    sessionID: string
+    attachmentID: AttachmentId
+  }
+  query?: {
+    variant?: AttachmentVariant
+  }
+  url: "/api/session/{sessionID}/attachment/{attachmentID}"
+}
+
+export type V2SessionAttachmentErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+}
+
+export type V2SessionAttachmentError = V2SessionAttachmentErrors[keyof V2SessionAttachmentErrors]
+
+export type V2SessionAttachmentResponses = {
+  /**
+   * Success
+   */
+  200: Blob | File
+}
+
+export type V2SessionAttachmentResponse = V2SessionAttachmentResponses[keyof V2SessionAttachmentResponses]
 
 export type V2SessionListData = {
   body?: never

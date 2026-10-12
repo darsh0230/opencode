@@ -50,4 +50,5 @@ export const endpointNames = {
   "question.request.list": "listRequests",
 } as const
 
-export const omitEndpoints = new Set(["fs.read", "pty.connect", "pty.connectToken"])
+// Binary and upgrade routes use the transport/legacy SDK rather than the JSON-only Promise generator.
+export const omitEndpoints = new Set(["fs.read", "session.attachment", "pty.connect", "pty.connectToken"])

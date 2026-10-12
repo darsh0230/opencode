@@ -1,4 +1,6 @@
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
+import { Image } from "@/image/image"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { ConfigV1 } from "@opencode-ai/core/v1/config/config"
 import { Session } from "./session"
@@ -192,6 +194,8 @@ const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const config = yield* Config.Service
+    const attachments = yield* AttachmentStore.Service
+    const image = yield* Image.Service
     const session = yield* Session.Service
     const agents = yield* Agent.Service
     const plugin = yield* Plugin.Service
@@ -216,7 +220,10 @@ const layer = Layer.effect(
       messages: SessionV1.WithParts[]
       model: Provider.Model
     }) {
-      const msgs = yield* MessageV2.toModelMessagesEffect(input.messages, input.model)
+      const msgs = yield* MessageV2.toModelMessagesEffect(input.messages, input.model).pipe(
+        Effect.provideService(AttachmentStore.Service, attachments),
+        Effect.provideService(Image.Service, image),
+      )
       return Token.estimate(JSON.stringify(msgs))
     })
 
@@ -594,6 +601,8 @@ export const node = LayerNode.make({
   service: Service,
   layer: layer,
   deps: [
+    AttachmentStore.node,
+    Image.node,
     Config.node,
     Session.node,
     Agent.node,

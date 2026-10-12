@@ -44,6 +44,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { SessionMessage } from "@opencode-ai/schema/session-message"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
 
 const parentTitlePrefix = "New session - "
 const childTitlePrefix = "Child session - "
@@ -486,7 +487,7 @@ export type Patch = Omit<Partial<Info>, "time" | "share" | "summary" | "revert" 
 const layer: Layer.Layer<
   Service,
   never,
-  BackgroundJob.Service | RuntimeFlags.Service | Database.Service | EventV2Bridge.Service
+  BackgroundJob.Service | RuntimeFlags.Service | Database.Service | EventV2Bridge.Service | AttachmentStore.Service
 > = Layer.effect(
   Service,
   Effect.gen(function* () {
@@ -494,6 +495,7 @@ const layer: Layer.Layer<
     const database = yield* Database.Service
     const background = yield* BackgroundJob.Service
     const events = yield* EventV2Bridge.Service
+    const attachments = yield* AttachmentStore.Service
     const flags = yield* RuntimeFlags.Service
 
     const createNext = Effect.fn("Session.createNext")(function* (input: {
@@ -621,6 +623,9 @@ const layer: Layer.Layer<
 
         yield* events.publish(SessionV1.Event.Deleted, { sessionID, info: session })
         yield* events.remove(sessionID)
+        yield* attachments
+          .remove(sessionID)
+          .pipe(Effect.catch((error) => Effect.logWarning("Session attachment cleanup failed", { sessionID, error })))
       } catch (error) {
         yield* Effect.logError("failed to remove session", { sessionID, error })
       }
@@ -632,14 +637,15 @@ const layer: Layer.Layer<
         return msg
       }).pipe(Effect.withSpan("Session.updateMessage"))
 
-    const updatePart = <T extends SessionV1.Part>(part: T): Effect.Effect<T> =>
+    const updatePart = <T extends SessionV1.Part>(part: T, sourceSessionID?: string): Effect.Effect<T> =>
       Effect.gen(function* () {
+        const stored = yield* MessageV2.externalizeToolPart(attachments, part, sourceSessionID)
         yield* events.publish(SessionV1.Event.PartUpdated, {
           sessionID: part.sessionID,
-          part: structuredClone(part),
+          part: structuredClone(stored),
           time: Date.now(),
         })
-        return part
+        return { ...part, ...stored }
       }).pipe(Effect.withSpan("Session.updatePart"))
 
     const getPart: Interface["getPart"] = Effect.fn("Session.getPart")(function* (input) {
@@ -725,7 +731,7 @@ const layer: Layer.Layer<
           if (p.type === "compaction" && p.tail_start_id) {
             p.tail_start_id = idMap.get(p.tail_start_id)
           }
-          yield* updatePart(p)
+          yield* updatePart(p, input.sessionID)
         }
       }
       return session
@@ -1010,7 +1016,7 @@ function listByProject(
 export const node = LayerNode.make({
   service: Service,
   layer: layer,
-  deps: [BackgroundJob.node, RuntimeFlags.node, Database.node, EventV2Bridge.node],
+  deps: [BackgroundJob.node, RuntimeFlags.node, Database.node, EventV2Bridge.node, AttachmentStore.node],
 })
 
 export * as Session from "./session"

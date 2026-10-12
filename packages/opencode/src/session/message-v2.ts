@@ -34,7 +34,11 @@ import { errorMessage } from "@/util/error"
 import { isMedia } from "@/util/media"
 import type { SystemError } from "bun"
 import type { Provider } from "@/provider/provider"
-import { Effect, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
+import { Config } from "@/config/config"
+import { Attachment } from "@opencode-ai/schema/attachment"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
+import { Image } from "@/image/image"
 
 /** Error shape thrown by Bun's fetch() when gzip/br decompression fails mid-stream */
 interface FetchDecompressionError extends Error {
@@ -133,6 +137,18 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
   model: Provider.Model,
   options?: { stripMedia?: boolean; toolOutputMaxChars?: number },
 ) {
+  const modelLimits = yield* Effect.cached(
+    Effect.gen(function* () {
+      const config = yield* Effect.serviceOption(Config.Service)
+      const image = Option.isSome(config) ? (yield* config.value.get()).attachment?.image : undefined
+      return {
+        autoResize: image?.auto_resize ?? true,
+        maxWidth: image?.max_width ?? 2000,
+        maxHeight: image?.max_height ?? 2000,
+        maxBase64Bytes: image?.max_base64_bytes ?? 5 * 1024 * 1024,
+      }
+    }),
+  )
   const result: UIMessage[] = []
   const toolNames = new Set<string>()
   // Track media from tool results that need to be injected as user messages
@@ -294,10 +310,32 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
         if (part.type === "tool") {
           toolNames.add(part.tool)
           if (part.state.status === "completed") {
+            const original = part.state
+            const state =
+              !part.state.time.compacted &&
+              !options?.stripMedia &&
+              part.state.attachments?.some((file) => Attachment.id(file.url))
+                ? yield* Effect.gen(function* () {
+                    const store = yield* AttachmentStore.Service
+                    return yield* Schema.decodeUnknownEffect(Schema.toType(SessionV1.ToolStateCompleted))(
+                      yield* store.materialize(msg.info.sessionID, { ...original, input: {} }, yield* modelLimits),
+                    ).pipe(
+                      Effect.catch((error) =>
+                        Effect.logWarning("Invalid materialized tool history", { error }).pipe(
+                          Effect.as({
+                            ...original,
+                            attachments: [],
+                            output: `${original.output}\n${AttachmentStore.UNAVAILABLE}`,
+                          }),
+                        ),
+                      ),
+                    )
+                  })
+                : part.state
             const outputText = part.state.time.compacted
               ? "[Old tool result content cleared]"
-              : truncateToolOutput(part.state.output, options?.toolOutputMaxChars)
-            const attachments = part.state.time.compacted || options?.stripMedia ? [] : (part.state.attachments ?? [])
+              : truncateToolOutput(state.output, options?.toolOutputMaxChars)
+            const attachments = part.state.time.compacted || options?.stripMedia ? [] : (state.attachments ?? [])
 
             // For providers that don't support media in tool results, extract media files
             // (images, PDFs) to be sent as a separate user message
@@ -423,7 +461,12 @@ export function toModelMessages(
   model: Provider.Model,
   options?: { stripMedia?: boolean; toolOutputMaxChars?: number },
 ): Promise<ModelMessage[]> {
-  return Effect.runPromise(toModelMessagesEffect(input, model, options))
+  return Effect.runPromise(
+    toModelMessagesEffect(input, model, options).pipe(
+      Effect.provide(AttachmentStore.defaultLayer),
+      Effect.provide(LayerNode.compile(Image.node)),
+    ),
+  )
 }
 
 export const page = Effect.fn("MessageV2.page")(function* (input: {
@@ -738,4 +781,19 @@ export function fromError(
 }
 
 export * as MessageV2 from "./message-v2"
-export const node = LayerNode.group([Database.node])
+export const node = LayerNode.group([Database.node, AttachmentStore.node, Image.node])
+
+/** Keep tool arguments unchanged while externalizing newly completed tool media. */
+export const externalizeToolPart = Effect.fn("MessageV2.externalizeToolPart")(function* <
+  T extends typeof SessionV1.Part.Type,
+>(store: AttachmentStore.Interface, part: T, sourceSessionID?: string) {
+  if (part.type !== "tool" || part.state.status !== "completed") return part
+  const state = yield* Schema.decodeUnknownEffect(Schema.toType(SessionV1.ToolStateCompleted))(
+    yield* store.externalizeRecovering(part.sessionID, { ...part.state, input: {} }, sourceSessionID),
+  ).pipe(
+    Effect.catch((error) =>
+      Effect.logWarning("Invalid externalized tool result", { error }).pipe(Effect.as(part.state)),
+    ),
+  )
+  return { ...part, state: { ...state, input: part.state.input } }
+})

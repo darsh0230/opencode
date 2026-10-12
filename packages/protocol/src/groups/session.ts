@@ -1,4 +1,5 @@
 import { SessionMessage } from "@opencode-ai/schema/session-message"
+import { Attachment } from "@opencode-ai/schema/attachment"
 import { SessionInput } from "@opencode-ai/schema/session-input"
 import { PromptInput } from "@opencode-ai/schema/prompt-input"
 import { Session } from "@opencode-ai/schema/session"
@@ -105,6 +106,22 @@ export const SessionsQuery = Schema.Struct({
 
 export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLocationMiddleware: Context.Key<I, S>) =>
   HttpApiGroup.make("server.session")
+    .add(
+      HttpApiEndpoint.get("session.attachment", "/api/session/:sessionID/attachment/:attachmentID", {
+        params: { sessionID: Session.ID, attachmentID: Attachment.ID },
+        query: Schema.Struct({ variant: Schema.optional(Attachment.Variant) }),
+        success: Schema.Uint8Array.pipe(HttpApiSchema.asUint8Array()),
+        error: SessionNotFoundError,
+      })
+        .middleware(sessionLocationMiddleware)
+        .annotateMerge(
+          OpenApi.annotations({
+            identifier: "v2.session.attachment",
+            summary: "Read session attachment",
+            description: "Read an original tool image or its thumbnail belonging to this session.",
+          }),
+        ),
+    )
     .add(
       HttpApiEndpoint.get("session.list", "/api/session", {
         query: SessionsQuery,

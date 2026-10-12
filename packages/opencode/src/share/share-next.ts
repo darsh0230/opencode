@@ -1,4 +1,5 @@
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
 import { httpClient } from "@opencode-ai/core/effect/app-node-platform"
 import type * as SDK from "@opencode-ai/sdk/v2"
 import { serviceUse } from "@opencode-ai/core/effect/service-use"
@@ -120,6 +121,7 @@ const layer = Layer.effect(
     const httpOk = HttpClient.filterStatusOk(http)
     const provider = yield* Provider.Service
     const session = yield* Session.Service
+    const attachments = yield* AttachmentStore.Service
 
     function sync(sessionID: SessionID, data: Data[]) {
       return Effect.gen(function* () {
@@ -256,9 +258,10 @@ const layer = Layer.effect(
       if (!share) return
 
       const req = yield* request()
+      const portable = yield* attachments.materialize(sessionID, Array.from(queued.values()))
       const res = yield* HttpClientRequest.post(`${req.baseUrl}${req.api.sync(share.id)}`).pipe(
         HttpClientRequest.setHeaders(req.headers),
-        HttpClientRequest.bodyJson({ secret: share.secret, data: Array.from(queued.values()) }),
+        HttpClientRequest.bodyJson({ secret: share.secret, data: portable }),
         Effect.flatMap((r) => http.execute(r)),
       )
 
@@ -365,7 +368,16 @@ const layer = Layer.effect(
 export const node = LayerNode.make({
   service: Service,
   layer: layer,
-  deps: [Account.node, EventV2Bridge.node, Config.node, Database.node, httpClient, Provider.node, Session.node],
+  deps: [
+    Account.node,
+    EventV2Bridge.node,
+    Config.node,
+    Database.node,
+    httpClient,
+    Provider.node,
+    Session.node,
+    AttachmentStore.node,
+  ],
 })
 
 export * as ShareNext from "./share-next"

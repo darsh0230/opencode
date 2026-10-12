@@ -11,6 +11,8 @@ import {
 } from "@opencode-ai/llm"
 import * as OpenAIChat from "@opencode-ai/llm/protocols/openai-chat"
 import { Database } from "@opencode-ai/core/database/database"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
+import { Attachment } from "@opencode-ai/schema/attachment"
 import { makeLocationNode } from "@opencode-ai/core/effect/app-node"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { LayerNodePlatform } from "@opencode-ai/core/effect/app-node-platform"
@@ -255,6 +257,7 @@ const it = testEffect(
   AppNodeBuilder.build(
     LayerNode.group([
       Database.node,
+      AttachmentStore.node,
       EventV2.node,
       QuestionV2.node,
       SessionProjector.node,
@@ -1432,7 +1435,21 @@ describe("SessionRunnerLLM", () => {
 
       expect(requests).toHaveLength(1)
       expect(requests[0]?.tools.map((tool) => tool.name)).toEqual(["echo", "defect"])
-      expect(yield* session.context(sessionID)).toMatchObject([
+      const history = yield* session.context(sessionID)
+      const file = history.flatMap((message) =>
+        message.type === "assistant"
+          ? message.content.flatMap((part) =>
+              part.type === "tool" && part.id === "call-provider" && part.state.status === "completed"
+                ? part.state.content.filter((item) => item.type === "file")
+                : [],
+            )
+          : [],
+      )[0]
+      const id = file && Attachment.id(file.uri)
+      if (!id) throw new Error("Missing persisted screenshot")
+      const attachments = yield* AttachmentStore.Service
+      expect((yield* attachments.read(sessionID, id)).content).toEqual(Buffer.from("aGVsbG8=", "base64"))
+      expect(history).toMatchObject([
         { type: "user", text: "Use tools" },
         {
           type: "assistant",
@@ -1461,7 +1478,12 @@ describe("SessionRunnerLLM", () => {
                 structured: {},
                 content: [
                   { type: "text", text: "Hello" },
-                  { type: "file", mime: "image/png", uri: "data:image/png;base64,aGVsbG8=", name: "hello.png" },
+                  {
+                    type: "file",
+                    mime: "image/png",
+                    uri: expect.stringMatching(/^opencode-attachment:/),
+                    name: "hello.png",
+                  },
                 ],
               },
             },

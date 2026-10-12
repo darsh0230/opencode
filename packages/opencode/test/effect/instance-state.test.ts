@@ -3,6 +3,7 @@ import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { $ } from "bun"
 import { Context, Deferred, Duration, Effect, Exit, Fiber, Layer } from "effect"
+import { TestClock } from "effect/testing"
 import { InstanceState } from "@/effect/instance-state"
 import {
   disposeAllInstancesEffect,
@@ -24,6 +25,27 @@ const tmpdirGitScoped = Effect.gen(function* () {
   return dir
 })
 
+it.effect("InstanceState retries transient failures after their bounded TTL", () =>
+  Effect.gen(function* () {
+    const dir = yield* tmpdirScoped()
+    const attempts: number[] = []
+    const state = yield* InstanceState.make(() =>
+      Effect.gen(function* () {
+        const attempt = attempts.push(attempts.length + 1)
+        if (attempt === 1) return yield* Effect.fail("Temporary database failure")
+        return attempt
+      }),
+    )
+    expect(Exit.isFailure(yield* access(state, dir).pipe(Effect.exit))).toBe(true)
+    expect(Exit.isFailure(yield* access(state, dir).pipe(Effect.exit))).toBe(true)
+    expect(attempts).toEqual([1])
+    yield* TestClock.adjust(Duration.seconds(31))
+    expect(yield* access(state, dir)).toBe(2)
+    expect(yield* access(state, dir)).toBe(2)
+    expect(attempts).toEqual([1, 2])
+  }),
+)
+
 it.live("InstanceState caches values per directory", () =>
   Effect.gen(function* () {
     const dir = yield* tmpdirScoped()
@@ -35,6 +57,41 @@ it.live("InstanceState caches values per directory", () =>
 
     expect(a).toBe(b)
     expect(n).toBe(1)
+  }),
+)
+
+it.live("InstanceState retries initialization after the first caller is interrupted", () =>
+  Effect.gen(function* () {
+    const dir = yield* tmpdirScoped()
+    const started = yield* Deferred.make<void>()
+    const attempts: number[] = []
+    const released: number[] = []
+    const state = yield* InstanceState.make(() =>
+      Effect.gen(function* () {
+        const attempt = attempts.push(attempts.length + 1)
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            released.push(attempt)
+          }),
+        )
+        if (attempt === 1) {
+          yield* Deferred.succeed(started, undefined)
+          yield* Effect.never
+        }
+        return { attempt }
+      }),
+    )
+    const first = yield* access(state, dir).pipe(Effect.forkChild)
+    yield* Deferred.await(started)
+    yield* Fiber.interrupt(first)
+
+    const result = yield* access(state, dir).pipe(Effect.exit)
+    expect(Exit.isSuccess(result)).toBe(true)
+    if (Exit.isFailure(result)) return yield* result
+    expect(result.value.attempt).toBe(2)
+    expect(released).toEqual([1])
+    expect(yield* access(state, dir)).toBe(result.value)
+    expect(attempts).toEqual([1, 2])
   }),
 )
 

@@ -40,6 +40,7 @@ import { ShellID } from "@/tool/shell/id"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { Truncate } from "@/tool/truncate"
 import { Image } from "@/image/image"
+import { AttachmentStore } from "@opencode-ai/core/attachment-store"
 import { decodeDataUrl } from "@/util/data-url"
 import { Process } from "@/util/process"
 import { Cause, Effect, Exit, Latch, Layer, Option, Scope, Context, Schema, Types } from "effect"
@@ -129,6 +130,7 @@ const layer = Layer.effect(
     const registry = yield* ToolRegistry.Service
     const truncate = yield* Truncate.Service
     const image = yield* Image.Service
+    const attachments = yield* AttachmentStore.Service
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
     const scope = yield* Scope.Scope
     const instruction = yield* Instruction.Service
@@ -221,7 +223,10 @@ const layer = Layer.effect(
           (yield* provider.getModel(input.providerID, input.modelID)))
       const msgs = onlySubtasks
         ? [{ role: "user" as const, content: subtasks.map((p) => p.prompt).join("\n") }]
-        : yield* MessageV2.toModelMessagesEffect(context, mdl)
+        : yield* MessageV2.toModelMessagesEffect(context, mdl).pipe(
+            Effect.provideService(AttachmentStore.Service, attachments),
+            Effect.provideService(Image.Service, image),
+          )
       const text = yield* llm
         .stream({
           agent: ag,
@@ -1259,7 +1264,10 @@ const layer = Layer.effect(
               sys.environment(model),
               instruction.system().pipe(Effect.orDie),
               sys.mcp(agent, session.permission),
-              MessageV2.toModelMessagesEffect(msgs, model),
+              MessageV2.toModelMessagesEffect(msgs, model).pipe(
+                Effect.provideService(AttachmentStore.Service, attachments),
+                Effect.provideService(Image.Service, image),
+              ),
             ])
             const system = [
               ...env,
@@ -1599,6 +1607,7 @@ export const node = LayerNode.make({
   service: Service,
   layer: layer,
   deps: [
+    AttachmentStore.node,
     SessionStatus.node,
     Session.node,
     Agent.node,
