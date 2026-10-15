@@ -69,7 +69,11 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
 
     const id = createMemo(() => params.id || undefined)
     const list = createMemo(() => sync().data.agent.filter((item) => item.mode !== "subagent" && !item.hidden))
-    const agentsVisible = createMemo(() => settings.visibility.customAgents() || hasCustomAgent(list()))
+    // show the switcher whenever there is more than one selectable agent,
+    // e.g. the built-in "build" and "plan" on a default install
+    const agentsVisible = createMemo(
+      () => list().length > 1 || settings.visibility.customAgents() || hasCustomAgent(list()),
+    )
     const connected = createMemo(() => new Set(providers.connected().map((item) => item.id)))
 
     const [saved, setSaved, , savedReady] = persisted(
@@ -192,6 +196,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           return
         }
 
+        const changed = agent.current()?.name !== item.name
         batch(() => {
           setStore("current", item.name)
           setStore("last", {
@@ -213,6 +218,16 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           }
           setStore("draft", next)
         })
+
+        const session = id()
+        if (!session || !changed) return
+        // v2 prompts don't carry an agent; keep the server-side session agent in sync
+        void sdk()
+          .protocol.then((protocol) => {
+            if (protocol !== "v2") return
+            return sdk().api.session.switchAgent({ sessionID: session, agent: item.name })
+          })
+          .catch(() => {})
       },
       move(direction: 1 | -1) {
         const items = list()
