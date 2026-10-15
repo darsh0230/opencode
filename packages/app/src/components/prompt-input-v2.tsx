@@ -7,6 +7,7 @@ import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import type { ReferenceInfo } from "@opencode-ai/sdk/v2/client"
 import { createEffect, createMemo, on, Show } from "solid-js"
+import { createMediaQuery } from "@solid-primitives/media"
 import { ModelSelectorPopoverV2 } from "@/components/dialog-select-model"
 import { PromptOpenAIUsage } from "@/components/prompt-openai-usage"
 import { DialogSelectModelUnpaidV2 } from "@/components/dialog-select-model-unpaid-v2"
@@ -49,6 +50,7 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
   const dialog = useDialog()
   const command = useCommand()
   const language = useLanguage()
+  const mobile = createMediaQuery("(max-width: 767px)")
 
   return (
     <div class="flex flex-col gap-3">
@@ -56,6 +58,7 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
         controller={props.controller}
         borderUnderlay={props.borderUnderlay}
         class={props.class}
+        compact={mobile()}
         variantControlVisible={!props.controller.model.loading}
         attachKeybind={command.keybindParts("file.attach")}
         attachShortcut={command.keybind("file.attach")}
@@ -504,6 +507,7 @@ function PromptInputV2ModelControl(props: {
       <TooltipV2
         placement="top"
         gutter={4}
+        class="min-w-0 max-w-full"
         value={
           <>
             {props.title}

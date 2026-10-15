@@ -40,6 +40,7 @@ export type PromptInputV2Props = {
   readOnly?: boolean
   borderUnderlay?: boolean
   class?: string
+  compact?: boolean
   modelControl?: JSX.Element
   usageControl?: JSX.Element
   variantControlVisible?: boolean
@@ -198,7 +199,7 @@ export function PromptInputV2(props: PromptInputV2Props) {
 
         <div class="flex min-h-11 items-end px-2 py-2">
           <div
-            class="flex min-w-0 flex-1 flex-wrap items-center gap-1"
+            class={`flex min-w-0 flex-1 flex-nowrap items-center ${props.compact ? "gap-0.5" : "gap-1"}`}
             aria-hidden={state.mode === "shell"}
             inert={state.mode === "shell" ? true : undefined}
             style={buttons()}
@@ -223,6 +224,7 @@ export function PromptInputV2(props: PromptInputV2Props) {
                   title={i18n.t("ui.promptInput.chooseAgent")}
                   keybind={["Mod", "."]}
                   control={control}
+                  compact={props.compact ? 1 : undefined}
                 />
               )}
             </Show>
@@ -250,6 +252,7 @@ export function PromptInputV2(props: PromptInputV2Props) {
                     title={i18n.t("ui.promptInput.chooseVariant")}
                     keybind={["Shift", "Mod", "D"]}
                     control={control}
+                    compact={props.compact ? 2 : undefined}
                   />
                 </Show>
               )}
@@ -531,6 +534,7 @@ function PromptInputV2ConfiguredSelect(props: {
   keybind?: string[]
   control: PromptInputV2SelectControl
   model?: boolean
+  compact?: 1 | 2
 }) {
   const current = () => props.control.current()
   const providerID = () => props.control.options().find((option) => option.id === current())?.providerID
@@ -545,6 +549,7 @@ function PromptInputV2ConfiguredSelect(props: {
           <ProviderIcon id={providerID()!} class="size-4 shrink-0 opacity-60" />
         </Show>
       }
+      compact={props.compact}
       onSelect={props.control.onSelect}
     />
   )
@@ -557,12 +562,16 @@ export function PromptInputV2Select(props: {
   current: string
   currentIcon?: JSX.Element
   class?: string
+  // Number of label characters shown when space is tight (chevron is always kept)
+  compact?: 1 | 2
   onOpenChange?: (open: boolean) => void
   onSelect: (id: string) => void
 }) {
+  const label = () => props.options.find((option) => option.id === props.current)?.label ?? props.current
   return (
     <TooltipV2
       placement="top"
+      class="min-w-0 max-w-full"
       value={
         <>
           {props.title}
@@ -575,13 +584,12 @@ export function PromptInputV2Select(props: {
           as={ButtonV2}
           variant="ghost-muted"
           size="normal"
-          class={`max-w-[220px] justify-start ![font-weight:440] ${props.class ?? ""}`}
+          class={`min-w-0 max-w-[220px] justify-start ![font-weight:440] ${props.class ?? ""}`}
+          style={props.compact ? { "padding-inline": "7px" } : undefined}
           aria-label={props.title}
         >
           {props.currentIcon}
-          <span class="truncate capitalize leading-5">
-            {props.options.find((option) => option.id === props.current)?.label ?? props.current}
-          </span>
+          <span class="truncate capitalize leading-5">{props.compact ? label().slice(0, props.compact) : label()}</span>
           <span class="-ms-0.5 -me-1 flex shrink-0">
             <IconV2 name="chevron-down" />
           </span>
